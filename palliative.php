@@ -191,7 +191,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <?php echo $_SESSION['message']; unset($_SESSION['message'], $_SESSION['message_type']); ?>
             </div>
         <?php endif; ?>
-        <h1 style="color:brown">Palliative Care Request</h1>
+        <h1 style="color:white">Palliative Care Request</h1>
         <form method="POST" action="">
     <div class="row">
         <div class="col-md-6 form-group">
