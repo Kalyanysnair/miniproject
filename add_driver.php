@@ -80,7 +80,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <body>
                     <h2>Welcome to SWIFTAID!</h2>
                     <p>Your login credentials are:</p>
-                    <p><strong>Username:</strong> {$email}</p>
+                    <p><strong>Username:</strong> {$username}</p>
                     <p><strong>Password:</strong> {$auto_password}</p>
                     <p style='color: red;'><strong>Important:</strong> Please change your password after logging in.</p>
                     <p>Thank you for joining our team!</p>

@@ -219,6 +219,18 @@ body {
             max-height: 300px;
             margin-top: 20px;
         }
+        .logout-btn {
+            background-color:rgb(53, 220, 61);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .logout-btn:hover {
+            background-color:rgb(46, 200, 35);
+        }
     </style>
 </head>
 <body>
@@ -227,7 +239,7 @@ body {
     <div class="admin-container">
         <div class="dashboard-header">
             <h1>Admin Dashboard</h1>
-           
+            <a href="logout.php" class="logout-btn">Logout</a>
         </div>
 
         <div class="stats-grid">

@@ -358,7 +358,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
         </div>
         <nav class="sidebar-menu">
         <ul class="sidebar-nav">
-        <li><a href="dashboard.php"><i class="fas fa-user"></i> My Profile</a></li>
+        <li><a href="user_profile.php"><i class="fas fa-user"></i> My Profile</a></li>
         <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
         <li><a href="feedback.php"><i class="fas fa-th-list"></i> Feedback</a></li>
         <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>

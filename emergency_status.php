@@ -3,11 +3,6 @@ session_start();
 
 require 'connect.php';
 
-// Debug output
-echo "<!-- Debug information:\n";
-echo "Connected user ID: " . $_SESSION['user_id'] . "\n";
-echo "-->\n";
-
 if (!isset($_SESSION['user_id'])) {
     die("Error: User not logged in. Please log in again.");
 }
@@ -16,15 +11,6 @@ $userid = $_SESSION['user_id'];
 $error_message = "";
 
 try {
-    // Debug query
-    $test_query = "SELECT COUNT(*) as count FROM tbl_emergency WHERE userid = ?";
-    $stmt = $conn->prepare($test_query);
-    $stmt->bind_param("i", $userid);
-    $stmt->execute();
-    $count_result = $stmt->get_result()->fetch_assoc();
-    
-    echo "<!-- Total bookings found: " . $count_result['count'] . " -->\n";
-
     // Fetch current booking
     $current_booking_query = "
         SELECT 
@@ -48,12 +34,6 @@ try {
     $result = $stmt->get_result();
     $current_booking = $result->fetch_assoc();
 
-    // Debug output for current booking
-    echo "<!-- Current booking query executed. Found: " . ($current_booking ? "Yes" : "No") . " -->\n";
-    if ($current_booking) {
-        echo "<!-- Current booking status: " . $current_booking['status'] . " -->\n";
-    }
-
     // Fetch previous bookings
     $previous_bookings_query = "
         SELECT 
@@ -75,13 +55,9 @@ try {
     $stmt->execute();
     $previous_bookings = $stmt->get_result();
 
-    // Debug output for previous bookings
-    echo "<!-- Previous bookings found: " . $previous_bookings->num_rows . " -->\n";
-
 } catch (Exception $e) {
     $error_message = "An error occurred while fetching your bookings. Please try again later.";
     error_log("Database error: " . $e->getMessage());
-    echo "<!-- Database error: " . $e->getMessage() . " -->\n";
 }
 
 ?>
@@ -90,209 +66,124 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Status</title>
+    <title>Emergency Booking Status</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-
         body {
-            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-image: url('assets/assets/img//template/Groovin/hero-carousel/ambulance2.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            background-repeat: no-repeat;
             padding: 20px;
-            position: relative;
         }
-
         
-
-        /* Header space reservation */
-        .header-space {
-            height: 80px; /* Adjust based on your header height */
-            margin-bottom: 20px;
-        }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            position: relative;
-            z-index: 1;
         }
-
-        .glass-card {
-            background: rgba(232, 230, 230, 0.76);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: transform 0.3s ease;
+        
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
-
-        .glass-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card-header {
-            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-            padding-bottom: 15px;
+        
+        .card h2 {
+            color: #2E8B57;
+            border-bottom: 2px solid #2E8B57;
+            padding-bottom: 10px;
             margin-bottom: 20px;
         }
-
-        .card-header h2 {
-            color: var(--dark-color);
-            font-size: 1.8rem;
-            font-weight: 600;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 25px;
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-pending {
-            background: rgba(255, 193, 7, 0.2);
-            color: #856404;
-            border: 1px solid rgba(255, 193, 7, 0.3);
-        }
-
-        .status-accepted {
-            background: rgba(40, 167, 69, 0.2);
-            color: #155724;
-            border: 1px solid rgba(40, 167, 69, 0.3);
-        }
-
-        .status-completed {
-            background: rgba(0, 123, 255, 0.2);
-            color: #004085;
-            border: 1px solid rgba(0, 123, 255, 0.3);
-        }
-
-        .status-cancelled {
-            background: rgba(220, 53, 69, 0.2);
-            color: #721c24;
-            border: 1px solid rgba(220, 53, 69, 0.3);
-        }
-
+        
         .booking-details {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
-            margin-bottom: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
         }
-
+        
         .detail-item {
-            background: rgba(255, 255, 255, 0.5);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
         }
-
+        
         .detail-label {
-            font-weight: 600;
-            color: var(--secondary-color);
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: bold;
+            color: #2E8B57;
         }
-
-        .detail-value {
-            color: var(--dark-color);
-            font-size: 1.1rem;
-        }
-
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 14px;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
-        }
-
-        .btn-primary:hover {
-            background: #0056b3;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-        }
-
+        
         table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 20px;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 10px;
-            overflow: hidden;
+            border-collapse: collapse;
+            margin-top: 15px;
         }
-
+        
         th, td {
-            padding: 15px;
+            padding: 10px;
             text-align: left;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid #ddd;
         }
-
+        
         th {
-            background: rgba(0, 0, 0, 0.05);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.9rem;
-            letter-spacing: 0.5px;
-            color: var(--secondary-color);
+            background-color: #f0f0f0;
+            color: #2E8B57;
         }
-
-        tr:last-child td {
-            border-bottom: none;
+        
+        .btn {
+            padding: 8px 16px;
+            background-color: #2E8B57;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
-
-        tr:hover {
-            background: rgba(255, 255, 255, 0.3);
+        
+        .btn:hover {
+            background-color: #3CB371;
         }
-
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            background-color: #FFF3CD;
+            color: #856404;
+        }
+        
+        .status-accepted {
+            background-color: #D4EDDA;
+            color: #155724;
+        }
+        
+        .status-completed {
+            background-color: #D1ECF1;
+            color: #0C5460;
+        }
+        
+        .status-cancelled {
+            background-color: #F8D7DA;
+            color: #721C24;
+        }
+        
         .error-message {
-            background: rgba(220, 53, 69, 0.1);
-            border: 1px solid rgba(220, 53, 69, 0.2);
-            color: var(--danger-color);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(5px);
+            background-color: #F8D7DA;
+            color: #721C24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
         }
-
+        
         @media (max-width: 768px) {
             .booking-details {
                 grid-template-columns: 1fr;
-            }
-
-            .container {
-                padding: 10px;
-            }
-
-            .glass-card {
-                padding: 15px;
             }
         }
     </style>
@@ -301,24 +192,22 @@ try {
 </head>
 <body>
     <div class="container">
-    <?php include 'header.php';?>
+        <?php include 'header.php'; ?>
 
-<?php if ($error_message): ?>
+        <?php if ($error_message): ?>
             <div class="error-message">
                 <?php echo htmlspecialchars($error_message); ?>
             </div>
         <?php endif; ?>
 
         <!-- Current Booking Status -->
-        <div class="glass-card">
-            <div class="card-header">
-                <h2>Current Booking Status</h2>
-            </div>
+        <div class="card">
+            <h2>Current Booking Status</h2>
             <?php if ($current_booking): ?>
                 <div class="booking-details">
                     <div class="detail-item">
                         <div class="detail-label">Booking ID</div>
-                        <div class="detail-value">#<?php echo htmlspecialchars($current_booking['request_id']); ?></div>
+                        <div>#<?php echo htmlspecialchars($current_booking['request_id']); ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Status</div>
@@ -328,40 +217,33 @@ try {
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Patient Name</div>
-                        <div class="detail-value"><?php echo htmlspecialchars($current_booking['patient_name']); ?></div>
+                        <div><?php echo htmlspecialchars($current_booking['patient_name']); ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Contact Phone</div>
-                        <div class="detail-value"><?php echo htmlspecialchars($current_booking['contact_phone']); ?></div>
+                        <div><?php echo htmlspecialchars($current_booking['contact_phone']); ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Pickup Location</div>
-                        <div class="detail-value"><?php echo htmlspecialchars($current_booking['pickup_location']); ?></div>
+                        <div><?php echo htmlspecialchars($current_booking['pickup_location']); ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Ambulance Type</div>
-                        <div class="detail-value"><?php echo htmlspecialchars($current_booking['ambulance_type']); ?></div>
+                        <div><?php echo htmlspecialchars($current_booking['ambulance_type']); ?></div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Booked On</div>
-                        <div class="detail-value"><?php echo date('d M Y, h:i A', strtotime($current_booking['created_at'])); ?></div>
+                        <div><?php echo date('d M Y, h:i A', strtotime($current_booking['created_at'])); ?></div>
                     </div>
                 </div>
-                <?php if ($current_booking['status'] == 'Accepted'): ?>
-                    <button class="btn btn-primary" onclick="proceedToPayment(<?php echo (int)$current_booking['request_id']; ?>)">
-                        Proceed to Payment
-                    </button>
-                <?php endif; ?>
             <?php else: ?>
                 <p>No active bookings found.</p>
             <?php endif; ?>
         </div>
 
         <!-- Previous Bookings -->
-        <div class="glass-card">
-            <div class="card-header">
-                <h2>Previous Bookings</h2>
-            </div>
+        <div class="card">
+            <h2>Previous Bookings</h2>
             <?php if ($previous_bookings && $previous_bookings->num_rows > 0): ?>
                 <table>
                     <thead>
@@ -372,6 +254,7 @@ try {
                             <th>Location</th>
                             <th>Status</th>
                             <th>Date</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -387,6 +270,13 @@ try {
                                     </span>
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
+                                <td>
+                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>)">
+                                            Pay Now
+                                        </button>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     </tbody>
@@ -399,7 +289,7 @@ try {
 
     <script>
         function proceedToPayment(requestId) {
-            if (confirm('Do you want to proceed to payment?')) {
+            if (confirm('Do you want to proceed to payment for this completed service?')) {
                 window.location.href = 'payment.php?request_id=' + requestId;
             }
         }
@@ -409,6 +299,5 @@ try {
             location.reload();
         }, 30000);
     </script>
-
 </body>
 </html>
