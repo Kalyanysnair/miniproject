@@ -66,6 +66,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <!-- Google Maps API Key (Replace with your own API key) -->
         
         <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDo-B6eOHsgGobdykDX7jkMBl8NcEuwZ_k&libraries=places&callback=initMap" async defer></script>
+        <!-- <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script> -->
+
     
         <!-- Stylesheets -->
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
@@ -293,7 +295,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                                         <!-- Current Location -->
                                         <div id="current-location" class="dropdown-options col-md-12">
-                                            <button type="button" class="btn btn-primary mt-2" onclick="getCurrentLocation()">Use Current Location</button>
+                                            <!-- <button type="button" class="btn btn-primary mt-2" onclick="getCurrentLocation()">Use Current Location</button> -->
+                                            <button type="button" class="btn btn-primary mt-2" onclick="showLocationOptions()">Use Current Location</button>
                                             <input type="text" id="current-location-input" class="form-control mt-2" readonly>
                                         </div>
 
@@ -418,7 +421,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             });
         }
 
-        function getCurrentLocation() {
+        function getCurrentLocation() { 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -449,6 +452,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         alert("Geolocation is not supported by your browser.");
     }
 }
+     
+// function getCurrentLocation() {
+//     if (navigator.geolocation) {
+//         navigator.geolocation.getCurrentPosition(
+//             (position) => {
+//                 const lat = position.coords.latitude;
+//                 const lng = position.coords.longitude;
+//                 const latLng = new google.maps.LatLng(lat, lng);
+
+//                 // Use Google Geocoder to get the place name
+//                 const geocoder = new google.maps.Geocoder();
+//                 geocoder.geocode({ 'location': latLng }, function(results, status) {
+//                     if (status === google.maps.GeocoderStatus.OK) {
+//                         if (results[0]) {
+//                             // Get the address from the first result
+//                             const placeName = results[0].formatted_address;
+//                             console.log("Current Location Place Name: ", placeName);
+
+//                             // Update the input field with the place name
+//                             document.getElementById("current-location-input").value = placeName;
+
+//                             // Optionally store the place name in the hidden field for form submission
+//                             document.getElementById("pickup_location").value = placeName;
+//                         } else {
+//                             alert('No results found for this location.');
+//                         }
+//                     } else {
+//                         alert('Geocoder failed due to: ' + status);
+//                     }
+//                 });
+//             },
+//             (error) => {
+//                 alert("Error getting current location: " + error.message);
+//                 console.error("Geolocation error:", error);
+//             }
+//         );
+//     } else {
+//         alert("Geolocation is not supported by your browser.");
+//     }
+// }
+
+
         function showLocationOptions() {
             const method = document.getElementById("location-method").value;
             document.querySelectorAll(".dropdown-options").forEach(option => option.style.display = "none");
@@ -466,10 +511,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     </body>
     </html>
-    <script>
-    let map, marker, autocomplete;
+    <!-- <script>
+    let map, marker, autocomplete; -->
 
-    // Initialize the map
+    <!-- // Initialize the map
     function initMap() {
         // Create a new map centered at a default location
         map = new google.maps.Map(document.getElementById("map"), {
@@ -531,52 +576,102 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Get the user's current location
-    function getCurrentLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const latLng = new google.maps.LatLng(lat, lng);
+    // function getCurrentLocation() {
+    //     if (navigator.geolocation) {
+    //         navigator.geolocation.getCurrentPosition(
+    //             (position) => {
+    //                 const lat = position.coords.latitude;
+    //                 const lng = position.coords.longitude;
+    //                 const latLng = new google.maps.LatLng(lat, lng);
 
-                    // Store the current location in the hidden field for form submission
-                    document.getElementById("pickup_location").value = `${lat}, ${lng}`;
-                    document.getElementById("current-location-input").value = `Lat: ${lat}, Lng: ${lng}`;
+    //                 // Store the current location in the hidden field for form submission
+    //                 document.getElementById("pickup_location").value = `${lat}, ${lng}`;
+    //                 document.getElementById("current-location-input").value = `Lat: ${lat}, Lng: ${lng}`;
 
-                    // Update the map to center on the current location
-                    map.setCenter(latLng);
-                    if (marker) marker.setMap(null); // Remove existing marker
-                    marker = new google.maps.Marker({
-                        position: latLng,
-                        map: map
-                    });
+    //                 // Update the map to center on the current location
+    //                 map.setCenter(latLng);
+    //                 if (marker) marker.setMap(null); // Remove existing marker
+    //                 marker = new google.maps.Marker({
+    //                     position: latLng,
+    //                     map: map
+    //                 });
 
-                    console.log("Current Location: ", lat, lng);
-                },
-                (error) => {
-                    alert("Error getting current location: " + error.message);
-                    console.error("Geolocation error:", error);
-                }
-            );
-        } else {
-            alert("Geolocation is not supported by your browser.");
-        }
-    }
+    //                 console.log("Current Location: ", lat, lng);
+    //             },
+    //             (error) => {
+    //                 alert("Error getting current location: " + error.message);
+    //                 console.error("Geolocation error:", error);
+    //             }
+    //         );
+    //     } else {
+    //         alert("Geolocation is not supported by your browser.");
+    //     }
+    // }
 
-    // Show the appropriate location input options based on the selected method
-    function showLocationOptions() {
-        const method = document.getElementById("location-method").value;
-        document.querySelectorAll(".dropdown-options").forEach(option => option.style.display = "none");
+    // Function to get current location and reverse geocode it
+// function getCurrentLocations() {
+//     if (navigator.geolocation) {
+//         navigator.geolocation.getCurrentPosition(function(position) {
+//             const lat = position.coords.latitude;
+//             const lng = position.coords.longitude;
+            
+//             // Create a Geocoder instance
+//             const geocoder = new google.maps.Geocoder();
+//             const latLng = new google.maps.LatLng(lat, lng);
+            
+//             // Geocode the coordinates to get the place name
+//             geocoder.geocode({ 'location': latLng }, function(results, status) {
+//                 if (status === google.maps.GeocoderStatus.OK) {
+//                     if (results[0]) {
+//                         // Get the address and set it to the input field
+//                         const address = results[0].formatted_address;
+//                         document.getElementById('current-location-input').value = address;
+//                     } else {
+//                         alert('No results found');
+//                     }
+//                 } else {
+//                     alert('Geocoder failed due to: ' + status);
+//                 }
+//             });
+//         }, function() {
+//             alert("Geolocation service failed.");
+//         });
+//     } else {
+//         alert("Geolocation is not supported by this browser.");
+//     }
+// }
 
-        if (method === "current") {
-            document.getElementById("current-location").style.display = "block";
-            getCurrentLocation(); // Automatically get current location when this option is selected
-        }
-        if (method === "map") {
-            document.getElementById("map-location").style.display = "block";
-        }
-    }
+// Function to show location options based on selected method
+// function showLocationOptions() {
+//     const method = document.getElementById("location-method").value;
+//     document.querySelectorAll(".dropdown-options").forEach(option => option.style.display = "none");
 
-    // Load the map when the page is loaded
-    google.maps.event.addDomListener(window, "load", initMap);
-</script>
+//     if (method === "current") {
+//         document.getElementById("current-location").style.display = "block";
+//         getCurrentLocations(); // Automatically get current location when this option is selected
+//     }
+//     if (method === "map") {
+//         document.getElementById("map-location").style.display = "block";
+//     }
+// }
+
+// Load the map when the page is loaded
+// google.maps.event.addDomListener(window, "load", initMap);
+
+    // // Show the appropriate location input options based on the selected method
+    // function showLocationOptions() {
+    //     const method = document.getElementById("location-method").value;
+    //     document.querySelectorAll(".dropdown-options").forEach(option => option.style.display = "none");
+
+    //     if (method === "current") {
+    //         document.getElementById("current-location").style.display = "block";
+    //         getCurrentLocation(); // Automatically get current location when this option is selected
+    //     }
+    //     if (method === "map") {
+    //         document.getElementById("map-location").style.display = "block";
+    //     }
+    // }
+
+    // // Load the map when the page is loaded
+    // google.maps.event.addDomListener(window, "load", initMap);
+</script> -->

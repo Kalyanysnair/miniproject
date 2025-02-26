@@ -148,12 +148,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
         .username {
             font-size: 1.2rem;
             font-weight: bold;
-            color: #fff;
+            color: black;
             margin-bottom: 15px;
         }
 
         .sidebar-menu {
-            margin-top: 20px;
+            margin-top: 100px;
         }
 
         .menu-item {
@@ -324,45 +324,34 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
                 border-radius: 5px;
                 cursor: pointer;
             }
+            .user-info {
+                display: flex;
+                align-items: center;
+                gap: 10px; /* Adjust spacing between elements */
+            }
+
+            .user-info h2 {
+                margin: 0; /* Remove default margin */
+            }
+
         }
     </style>
 </head>
 <body>
-<header id="header" class="header d-flex align-items-center fixed-top">
-    <div class="container-fluid container-xl position-relative d-flex align-items-center">
-        <a href="index.html" class="logo d-flex align-items-center me-auto">
-            <img src="assets/img/SWIFTAID2.png" alt="SWIFTAID Logo" style="height: 70px; margin-right: 10px;">
-            <h1 class="sitename">SWIFTAID</h1>
-        </a>
-        <nav id="navmenu" class="navmenu">
-            <ul>
-                <li><a href="index.html#hero">Home</a></li>
-                <li><a href="index.html#about">About</a></li>
-                <li><a href="index.html#services">Services</a></li>
-                <li><a href="index.html#ambulanceservice">Ambulance Services</a></li>
-                <li><a href="index.html#contact">Contact</a></li>
-                <li><a href="login.php">Login</a></li>
-                <li><a href="signup.php">Sign Up</a></li>
-            </ul>
-        </nav>
-        <a class="btn-getstarted" href="emergency.php">Emergency Booking</a>
-    </div>
-</header>
+    <?php include 'header.php';?>
 
     <!-- Sidebar -->
     <aside class="sidebar">
-        <div class="user-info">
-            <div class="user-avatar">👤</div>
-           
-        <h2><i class="fas fa-user"></i> Welcome, <?php echo $_SESSION['username']; ?></h2>
-        </div>
-        <nav class="sidebar-menu">
+    <nav class="sidebar-menu">
         <ul class="sidebar-nav">
-        <li><a href="user_profile.php"><i class="fas fa-user"></i> My Profile</a></li>
-        <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
-        <li><a href="feedback.php"><i class="fas fa-th-list"></i> Feedback</a></li>
-        <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
+            <li>
+                <a href="user_profile.php">
+                <span class="user-avatar">👤</span> <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?>
+                </a></li>
+            <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
+            <li><a href="feedback.php"><i class="fas fa-th-list"></i> Feedback</a></li>
+            <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
             
             <!-- <a href="#" class="menu-item" onclick="logout()">Logout</a> -->
         </nav>

@@ -44,8 +44,8 @@ if ($stmt = $conn->prepare($query)) {
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $comments = $_POST['comments'];
-    $requirements = $_POST['requirements'];
+    $comments = !empty($_POST['comments']) ? $_POST['comments'] : null;
+    $requirements = !empty($_POST['requirements']) ? $_POST['requirements'] : null;
     $address = $_POST['address'];
     $medical_condition = $_POST['medical_condition'];
     
@@ -62,16 +62,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     if ($stmt->execute()) {
         $_SESSION['message'] = "Palliative care request submitted successfully!";
-        $_SESSION['message_type'] = "success";
+        // $_SESSION['message_type'] = "success";
     } else {
         $_SESSION['message'] = "Error submitting request. Please try again.";
-        $_SESSION['message_type'] = "error";
+        // $_SESSION['message_type'] = "error";
     }
     $stmt->close();
 
     // Refresh page to display message
-    header("Location: " . $_SERVER['PHP_SELF']);
-    exit();
+    // header("Location: " . $_SERVER['PHP_SELF']);
+    // exit();
 }
 ?>
 
@@ -184,68 +184,101 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
     </header>
 
-<div class="container">
+    <div class="container">
     <div class="form-container">
-        <?php if (isset($_SESSION['message'])): ?>
-            <div class="alert alert-<?php echo $_SESSION['message_type']; ?>">
-                <?php echo $_SESSION['message']; unset($_SESSION['message'], $_SESSION['message_type']); ?>
-            </div>
-        <?php endif; ?>
         <h1 style="color:white">Palliative Care Request</h1>
-        <form method="POST" action="">
-    <div class="row">
-        <div class="col-md-6 form-group">
-            <label class="form-label">Username</label>
-            <input type="text" class="form-control readonly-field" 
-                   value="<?php echo htmlspecialchars($user_data['username'] ?? ''); ?>" readonly>
-        </div>
-        <div class="col-md-6 form-group">
-            <label class="form-label">Phone Number</label>
-            <input type="text" class="form-control readonly-field" 
-                   value="<?php echo htmlspecialchars($user_data['phoneno'] ?? ''); ?>" readonly>
-        </div>
-    </div>
+        <form method="POST" action="" id="palliativeForm">
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control readonly-field" 
+                           value="<?php echo htmlspecialchars($user_data['username'] ?? ''); ?>" readonly>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" class="form-control readonly-field" 
+                           value="<?php echo htmlspecialchars($user_data['phoneno'] ?? ''); ?>" readonly>
+                </div>
+            </div>
 
-    <div class="row">
-    <div class="col-md-6 form-group">
-            <label class="form-label">Additional Requirements</label>
-            <textarea name="requirements" class="form-control" 
-                      placeholder="Any special equipment, dietary requirements, or other specific needs..."></textarea>
-        </div>
-        <div class="col-md-6 form-group">
-            <label class="form-label">Medical Condition</label>
-            <textarea name="medical_condition" class="form-control" required 
-                      placeholder="Please describe the medical condition and any specific symptoms..."></textarea>
-        </div>
-    </div>
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label class="form-label">Additional Requirements</label>
+                    <textarea name="requirements" id="requirements" class="form-control" 
+                              placeholder="Max 100 characters..."></textarea>
+                    <small id="requirementsError" class="text-danger"></small>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="form-label">Medical Condition <span style="color:red">*</span></label>
+                    <textarea name="medical_condition" id="medical_condition" class="form-control" required 
+                              placeholder="Please describe the medical condition..."></textarea>
+                    <small id="medicalConditionError" class="text-danger"></small>
+                </div>
+            </div>
 
-    <div class="row">
-        <div class="col-md-6 form-group">
-            <label class="form-label">Additional Comments</label>
-            <textarea name="comments" class="form-control" 
-                      placeholder="Any specific requirements or concerns..."></textarea>
-        </div>
-        
-        <div class="col-md-6 form-group">
-            <label class="form-label">Complete Address</label>
-            <textarea name="address" class="form-control" required
-            placeholder="Please enter your complete address..."></textarea>
-            
-        </div>
-    </div>
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label class="form-label">Additional Comments</label>
+                    <textarea name="comments" id="comments" class="form-control" 
+                              placeholder="Max 100 characters..."></textarea>
+                    <small id="commentsError" class="text-danger"></small>
+                </div>
 
-    <div class="text-center mt-4">
-        <button type="submit" class="btn btn-submit">Submit Request</button>
-    </div>
-</form>
+                <div class="col-md-6 form-group">
+                    <label class="form-label">Complete Address <span style="color:red">*</span></label>
+                    <textarea name="address" id="address" class="form-control" required
+                              placeholder="Enter your complete address..."></textarea>
+                    <small id="addressError" class="text-danger"></small>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <button type="submit" id="submitBtn" class="btn btn-submit" disabled>Submit Request</button>
+            </div>
+        </form>
 
         <div class="text-center mt-3">
             <a href="javascript:history.back()" class="btn-back">Back</a>
         </div>
     </div>
 </div>
-<script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const medicalConditionField = document.getElementById("medical_condition");
+        const addressField = document.getElementById("address");
+        const requirementsField = document.getElementById("requirements");
+        const commentsField = document.getElementById("comments");
+        const submitBtn = document.getElementById("submitBtn");
+
+        function validateField(field, errorField, minLength = 3, maxLength = null) {
+            let value = field.value.trim();
+            if (value.length < minLength) {
+                errorField.textContent = "This field is required.";
+                return false;
+            } else if (maxLength && value.length > maxLength) {
+                errorField.textContent = `Max ${maxLength} characters allowed.`;
+                return false;
+            } else {
+                errorField.textContent = "";
+                return true;
+            }
+        }
+
+        function validateForm() {
+            let medicalValid = validateField(medicalConditionField, document.getElementById("medicalConditionError"));
+            let addressValid = validateField(addressField, document.getElementById("addressError"));
+            let requirementsValid = validateField(requirementsField, document.getElementById("requirementsError"), 0, 100);
+            let commentsValid = validateField(commentsField, document.getElementById("commentsError"), 0, 100);
+
+            submitBtn.disabled = !(medicalValid && addressValid && requirementsValid && commentsValid);
+        }
+
+        medicalConditionField.addEventListener("input", validateForm);
+        addressField.addEventListener("input", validateForm);
+        requirementsField.addEventListener("input", validateForm);
+        commentsField.addEventListener("input", validateForm);
+    });
+</script>
 </body>
 </html>
-
-        

@@ -7,7 +7,6 @@
     
     include 'connect.php';
     
-    
     // Step 1: Get the logged-in user's `userid` from `tbl_user`
     $driver_username = $_SESSION['username'];
     $user_query = "SELECT userid FROM tbl_user WHERE username = ?";
@@ -39,10 +38,7 @@
     $stmt->bind_param("i", $userid);
     $stmt->execute();
     $result = $stmt->get_result();
-    $driver = $result->fetch_assoc(); // This is where you're fetching the driver
-
-    // // Debugging: Check if the driver data is fetched properly
-    // var_dump($driver);
+    $driver = $result->fetch_assoc();
 
     if (!$driver) {
         die("Driver data not found for user ID $userid.");
@@ -50,58 +46,85 @@
 
     $ambulance_type = $driver['ambulance_type'] ?? ''; // Default to empty if not found
 
-
-    $emergency_query = "SELECT * FROM tbl_emergency WHERE status = 'Pending'";
-    $emergency_result = $mysqli->query($emergency_query);
-    // Fetch  Prebooking requests for ALL drivers (except palliative-only drivers)
-    if ($ambulance_type !== "Palliative") {
-       
+    // Step 3: Fetch ALL Emergency requests regardless of ambulance type
+    // Emergency requests should be shown to all drivers
+    $emergency_query = "SELECT e.*, u.username as user_name, u.phoneno, u.email 
+                       FROM tbl_emergency e
+                       LEFT JOIN tbl_user u ON e.userid = u.userid
+                       WHERE e.status = 'Pending'";
+    $stmt = $mysqli->prepare($emergency_query);
     
-        $prebooking_query = "SELECT p.*, u.username as user_name, u.phoneno
-                             FROM tbl_prebooking p 
-                             LEFT JOIN tbl_user u ON p.userid = u.userid 
-                             WHERE p.status = 'Pending'";
-        $prebooking_result = $mysqli->query($prebooking_query);
+    if (!$stmt) {
+        die("Emergency Query Preparation Failed: " . $mysqli->error);
     }
     
-    // Fetch Palliative requests for **ONLY palliative drivers**
+    $stmt->execute();
+    $emergency_result = $stmt->get_result();
+    
+    // Step 4: Fetch Prebooking requests that match the driver's ambulance type
+    // Prebooking requests should only be shown to drivers if the ambulance type matches
+    if ($ambulance_type !== "Palliative") {
+        $prebooking_query = "SELECT p.*, u.username as user_name, u.phoneno, u.email 
+                             FROM tbl_prebooking p 
+                             LEFT JOIN tbl_user u ON p.userid = u.userid 
+                             WHERE p.status = 'Pending' AND p.ambulance_type = ?";
+        $stmt = $mysqli->prepare($prebooking_query);
+        
+        if (!$stmt) {
+            die("Prebooking Query Preparation Failed: " . $mysqli->error);
+        }
+        
+        $stmt->bind_param("s", $ambulance_type);
+        $stmt->execute();
+        $prebooking_result = $stmt->get_result();
+        
+    }
+    
+    // Step 5: Fetch Palliative requests for palliative drivers only
     if ($ambulance_type === "Palliative") {
-        $palliative_query = "SELECT p.*, u.username as user_name, u.phoneno 
+        $palliative_query = "SELECT p.*, u.username as user_name, u.phoneno, u.email 
                              FROM tbl_palliative p 
                              LEFT JOIN tbl_user u ON p.userid = u.userid 
                              WHERE p.status = 'Pending'";
-        $palliative_result = $mysqli->query($palliative_query);
+        $stmt = $mysqli->prepare($palliative_query);
+        
+        if (!$stmt) {
+            die("Palliative Query Preparation Failed: " . $mysqli->error);
+        }
+        
+        $stmt->execute();
+        $palliative_result = $stmt->get_result();
     }
     
-    // Debugging: Check for query errors (only if queries were executed)
-    if (isset($emergency_result) && !$emergency_result) {
-        echo "Emergency Query Error: " . $mysqli->error;
+    // Function to send email
+    function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) {
+        $to = $userEmail;
+        $subject = "SWIFTAID - Request Accepted";
+        $message = "Dear $userName,\n\n";
+        $message .= "Your $requestType request (ID: $requestId) has been accepted by one of our drivers.\n";
+        $message .= "We will arrive at your location as specified in your request.\n\n";
+        $message .= "Thank you for choosing SWIFTAID.\n";
+        $headers = "From: swiftaid@gmail.com";
+
+        return mail($to, $subject, $message, $headers);
     }
-    if (isset($prebooking_result) && !$prebooking_result) {
-        echo "Prebooking Query Error: " . $mysqli->error;
-    }
-    if ($ambulance_type === "palliative" && !$palliative_result) {
-        echo "Palliative Query Error: " . $mysqli->error;
+
+    // Handle accept request actions here if needed
+    if (isset($_POST['accept_emergency'])) {
+        // Logic to accept emergency request
     }
     
-
-  
-// Function to send email
-function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) {
-    $to = $userEmail;
-    $subject = "SWIFTAID - Request Accepted";
-    $message = "Dear $userName,\n\n";
-    $message .= "Your $requestType request (ID: $requestId) has been accepted by one of our drivers.\n";
-    $message .= "We will arrive at your location as specified in your request.\n\n";
-    $message .= "Thank you for choosing SWIFTAID.\n";
-    $headers = "From: swiftaid@gmail.com";
-
-    return mail($to, $subject, $message, $headers);
-}
+    if (isset($_POST['accept_prebooking'])) {
+        // Logic to accept prebooking request
+    }
+    
+    if (isset($_POST['accept_palliative'])) {
+        // Logic to accept palliative request
+    }
+    
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<head>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -152,9 +175,6 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
             background-size: cover;
             background-position: center;
         }
-
-        
-        
 
         .sitename {
             color: var(--primary-color);
@@ -270,38 +290,27 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
         .design:hover {
             background-color: darkred;
         }
-      
+        .highlighted-type {
+    font-size: 1.1em;
+    margin: 10px 0;
+}
 
+.ambulance-type {
+    background-color:rgb(61, 186, 69);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+}
     </style>
 </head>
 <body>
-   
- <!-- Your existing header code -->
- <header id="header" class="header d-flex align-items-center fixed-top">
-        <div class="container-fluid container-xl position-relative d-flex align-items-center">
-            <a href="index.html" class="logo d-flex align-items-center me-auto">
-                <img src="assets/img/SWIFTAID2.png" alt="SWIFTAID Logo" style="height: 70px; margin-right: 10px;">
-                <h1 class="sitename">SWIFTAID</h1>
-            </a>
-            <nav id="navmenu" class="navmenu">
-                <ul>
-                    <li><a href="index.html#hero">Home</a></li>
-                    <li><a href="index.html#about">About</a></li>
-                    <li><a href="index.html#services">Services</a></li>
-                    <li><a href="index.html#ambulanceservice">Ambulance Services</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
-                    <li><a href="login.php">Login</a></li>
-                    <li><a href="signup.php">Sign Up</a></li>
-                </ul>
-            </nav>
-            <a class="btn-getstarted" href="emergency.php">Emergency Booking</a>
-        </div>
-    </header>
+ <?php include 'header.php'; ?>
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <ul class="sidebar-nav">
             <li>
-                <a href="dashboard_driver.php">
+                <a href="driver.php">
                     <i class="bi bi-grid"></i>
                     <span>Dashboard</span>
                 </a>
@@ -309,7 +318,6 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
             <li>
                 <a href="driver_profile.php">
                     <i class="bi bi-person"></i>
-                    
                     <span>My Profile</span>
                 </a>
             </li>
@@ -338,10 +346,11 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
     <main class="main">
         <div class="dashboard-card">
             <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
+            <!-- <p>You are operating a <strong><?php echo htmlspecialchars($ambulance_type); ?></strong> ambulance.</p> -->
         </div>
 
         <div class="dashboard-card">
-    <h3>Emergency Requests</h3>
+    <h3>Emergency Requests </h3>
     <div class="request-grid">
         <?php if (isset($emergency_result) && $emergency_result && $emergency_result->num_rows > 0): ?>
             <?php while ($request = $emergency_result->fetch_assoc()): ?>
@@ -350,7 +359,7 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
                     <p><strong>Patient:</strong> <?php echo htmlspecialchars($request['patient_name']); ?></p>
                     <p><strong>Location:</strong> <?php echo htmlspecialchars($request['pickup_location']); ?></p>
                     <p><strong>Phone:</strong> <?php echo htmlspecialchars($request['contact_phone']); ?></p>
-                    <p><strong>Type:</strong> <?php echo htmlspecialchars($request['ambulance_type']); ?></p>
+                    <p class="highlighted-type"><strong>Type:</strong> <span class="ambulance-type"><?php echo htmlspecialchars($request['ambulance_type']); ?></span></p>
                     
                     <form action="handle_request.php" method="POST" class="accept-form">
                         <input type="hidden" name="request_type" value="emergency">
@@ -360,71 +369,68 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
                 </div>
             <?php endwhile; ?>
         <?php else: ?>
-            <p class="no-requests">No emergency requests at the moment.</p>
+            <p class="no-requests">No emergency requests  at the moment.</p>
         <?php endif; ?>
     </div>
 </div>
         
         <?php if ($ambulance_type !== "Palliative") : ?>
         <div class="dashboard-card">
-    <h3>Prebooking Requests</h3>
-    <div class="request-grid">
-        <?php if ($prebooking_result && $prebooking_result->num_rows > 0) : ?>
-            <?php while ($request = $prebooking_result->fetch_assoc()) : ?>
-                <div class="request-card prebooking">
-                    <h4>Prebooking Request <?php echo htmlspecialchars($request['prebookingid']); ?></h4>
-                    <p><strong>User:</strong> <?php echo htmlspecialchars($request['user_name'] ?? 'Unknown User'); ?></p>
-                    <p><strong>From:</strong> <?php echo htmlspecialchars($request['pickup_location']); ?></p>
-                    <p><strong>To:</strong> <?php echo htmlspecialchars($request['destination']); ?></p>
-                    <p><strong>Service Time:</strong> <?php echo htmlspecialchars($request['service_time']); ?></p>
-                    <p><strong>Type:</strong> <?php echo htmlspecialchars($request['ambulance_type']); ?></p>
-                    <p><strong>Additional:</strong> <?php echo htmlspecialchars($request['additional_requirements']); ?></p>
-                    <p><strong>Phone No:</strong> <?php echo htmlspecialchars($request['phoneno']); ?></p>
-                    <form action="handle_request.php" method="POST" class="accept-form">
-                        <input type="hidden" name="request_type" value="prebooking">
-                        <input type="hidden" name="request_id" value="<?php echo $request['prebookingid']; ?>">
-                        <input type="hidden" name="user_email" value="<?php echo htmlspecialchars($request['email'] ?? ''); ?>">
-                        <button type="submit" class="design">Accept Request</button>
-                    </form>
-                </div>
-            <?php endwhile; ?>
-        <?php else : ?>
-            <p class="no-requests">No prebooking requests at the moment.</p>
+            <h3>Prebooking Requests (<?php echo htmlspecialchars($ambulance_type); ?> Type)</h3>
+            <div class="request-grid">
+                <?php if (isset($prebooking_result) && $prebooking_result && $prebooking_result->num_rows > 0) : ?>
+                    <?php while ($request = $prebooking_result->fetch_assoc()) : ?>
+                        <div class="request-card prebooking">
+                            <h4>Prebooking Request <?php echo htmlspecialchars($request['prebookingid']); ?></h4>
+                            <p><strong>User:</strong> <?php echo htmlspecialchars($request['user_name'] ?? 'Unknown User'); ?></p>
+                            <p><strong>From:</strong> <?php echo htmlspecialchars($request['pickup_location']); ?></p>
+                            <p><strong>To:</strong> <?php echo htmlspecialchars($request['destination']); ?></p>
+                            <p><strong>Service Time:</strong> <?php echo htmlspecialchars($request['service_time']); ?></p>
+                            <p><strong>Type:</strong> <?php echo htmlspecialchars($request['ambulance_type']); ?></p>
+                            <p><strong>Additional:</strong> <?php echo htmlspecialchars($request['additional_requirements']); ?></p>
+                            <p><strong>Phone No:</strong> <?php echo htmlspecialchars($request['phoneno']); ?></p>
+                            <form action="handle_request.php" method="POST" class="accept-form">
+                                <input type="hidden" name="request_type" value="prebooking">
+                                <input type="hidden" name="request_id" value="<?php echo $request['prebookingid']; ?>">
+                                <input type="hidden" name="user_email" value="<?php echo htmlspecialchars($request['email'] ?? ''); ?>">
+                                <button type="submit" class="design">Accept Request</button>
+                            </form>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else : ?>
+                    <p class="no-requests">No prebooking requests for <?php echo htmlspecialchars($ambulance_type); ?> ambulance at the moment.</p>
+                <?php endif; ?>
+            </div>
+        </div>
         <?php endif; ?>
-    </div>
-</div>
-<?php endif; ?>
-<?php if ($ambulance_type === "Palliative") : ?>
-<div class="dashboard-card">
-    <h3>Palliative Care Requests</h3>
-    <div class="request-grid">
-        <?php if ($palliative_result && $palliative_result->num_rows > 0): ?>
-            <?php while ($request = $palliative_result->fetch_assoc()): ?>
-                <div class="request-card emergency">
-                    <h4>Palliative Request : <?php echo htmlspecialchars($request['palliativeid']); ?></h4>
-                    <p><strong>Patient:</strong> <?php echo htmlspecialchars($request['user_name']); ?></p>
-                    <p><strong>Address:</strong> <?php echo htmlspecialchars($request['address']); ?></p>
-                    <p><strong>Phone:</strong> <?php echo htmlspecialchars($request['phoneno']); ?></p>
-                    <p><strong>Additional Requirements:</strong> <?php echo htmlspecialchars($request['additional_requirements']); ?></p>
-                    <p><strong>Medical Condition:</strong> <?php echo htmlspecialchars($request['medical_condition']); ?></p>
-                    
-                    <form action="handle_palliative.php" method="POST" class="accept-form">
-                        <input type="hidden" name="request_type" value="palliative">
-                        <input type="hidden" name="request_id" value="<?php echo $request['palliativeid']; ?>">
-                        <button type="submit" class="design">Accept Request</button>
-                    </form>
-                </div>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <p class="no-requests">No Palliative Care requests at the moment.</p>
+        
+        <?php if ($ambulance_type === "Palliative") : ?>
+        <div class="dashboard-card">
+            <h3>Palliative Care Requests</h3>
+            <div class="request-grid">
+                <?php if (isset($palliative_result) && $palliative_result && $palliative_result->num_rows > 0): ?>
+                    <?php while ($request = $palliative_result->fetch_assoc()): ?>
+                        <div class="request-card emergency">
+                            <h4>Palliative Request : <?php echo htmlspecialchars($request['palliativeid']); ?></h4>
+                            <p><strong>Patient:</strong> <?php echo htmlspecialchars($request['user_name']); ?></p>
+                            <p><strong>Address:</strong> <?php echo htmlspecialchars($request['address']); ?></p>
+                            <p><strong>Phone:</strong> <?php echo htmlspecialchars($request['phoneno']); ?></p>
+                            <p><strong>Additional Requirements:</strong> <?php echo htmlspecialchars($request['additional_requirements']); ?></p>
+                            <p><strong>Medical Condition:</strong> <?php echo htmlspecialchars($request['medical_condition']); ?></p>
+                            
+                            <form action="handle_palliative.php" method="POST" class="accept-form">
+                                <input type="hidden" name="request_type" value="palliative">
+                                <input type="hidden" name="request_id" value="<?php echo $request['palliativeid']; ?>">
+                                <button type="submit" class="design">Accept Request</button>
+                            </form>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p class="no-requests">No Palliative Care requests at the moment.</p>
+                <?php endif; ?>
+            </div>
+        </div>
         <?php endif; ?>
-    </div>
-</div>
-<?php endif; ?>
-
-
-
-
     </main>
 
     <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
@@ -432,47 +438,59 @@ function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) 
     <script src="assets/vendor/glightbox/js/glightbox.min.js"></script>
     <script src="assets/vendor/swiper/swiper-bundle.min.js"></script>
     <script src="assets/js/main.js"></script>
-    <script>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
     <script>
     $(document).ready(function() {
-        $(".accept-form").on("submit", function(e) {
-            e.preventDefault();
-            
-            if (!confirm("Are you sure you want to accept this request?")) {
-                return;
-            }
+    $(".accept-form").on("submit", function(e) {
+        e.preventDefault();
+        
+        if (!confirm("Are you sure you want to accept this request?")) {
+            return;
+        }
 
-            let form = $(this);
-            let requestType = form.find("input[name='request_type']").val();
-            let requestId = form.find("input[name='request_id']").val();
-            let userEmail = form.find("input[name='user_email']").val();
+        let form = $(this);
 
-            $.ajax({
-                url: "handle_request.php",
-                type: "POST",
-                data: form.serialize(),
-                dataType: "json",
-                success: function(response) {
-                    if (response.success) {
-                        alert("Request accepted successfully!");
-                        form.find("button").text("Accepted").prop("disabled", true);
-                        // Remove or fade out the card after acceptance
-                        form.closest(".request-card").fadeOut(500);
-                    } else {
-                        alert(response.message || "An error occurred.");
-                    }
-                },
-                error: function() {
-                    alert("An error occurred while processing the request.");
+        $.ajax({
+            url: "handle_request.php",
+            type: "POST",
+            data: form.serialize(),
+            dataType: "json",
+            success: function(response) {
+                console.log("Server Response:", response); // Debugging
+
+                if (response.success) {
+                    // Show success message dynamically
+                    let successMessage = $("<div class='success-msg'>✔ Request accepted successfully!</div>");
+                    successMessage.css({
+                        "color": "green",
+                        "padding": "10px",
+                        "margin-top": "10px",
+                        "border": "1px solid green",
+                        "border-radius": "5px",
+                        "display": "none",
+                        "background": "#d4edda"
+                    });
+
+                    form.after(successMessage);
+                    successMessage.fadeIn(300).delay(2000).fadeOut(500);
+
+                    form.find("button").text("Accepted").prop("disabled", true);
+                    
+                    // Optionally fade out the request card
+                    form.closest(".request-card").fadeOut(500);
+                } else {
+                    alert(response.message || "An error occurred.");
                 }
-            });
+            },
+            error: function(xhr, status, error) {
+                console.error("AJAX Error:", xhr.responseText); // Debugging
+                alert("An error occurred while processing the request.");
+            }
         });
     });
+});
+
     </script>
 </body>
 </html>
-
-

@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     }
     
     // Phone validation (basic)
-    if (!empty($phone) && !preg_match("/^[0-9]{10,15}$/", $phone)) {
-        $errors[] = "Phone number must be 10-15 digits";
+    if (!empty($phone) && !preg_match("/^[6-9]\d{9}$/", $phone)) {
+        $errors[] = "Phone number must be 10 digits and should start with numbers from 6-9";
     }
     
     // If no errors, update the profile
@@ -396,32 +396,13 @@ if (!$user) {
 </head>
 <body>
     <!-- Header -->
-    <header id="header" class="header d-flex align-items-center fixed-top">
-        <div class="container-fluid container-xl position-relative d-flex align-items-center">
-            <a href="index.html" class="logo d-flex align-items-center me-auto">
-                <img src="assets/img/SWIFTAID2.png" alt="SWIFTAID Logo" style="height: 70px; margin-right: 10px;">
-                <h1 class="sitename">SWIFTAID</h1>
-            </a>
-            <nav id="navmenu" class="navmenu">
-                <ul>
-                    <li><a href="index.html#hero">Home</a></li>
-                    <li><a href="index.html#about">About</a></li>
-                    <li><a href="index.html#services">Services</a></li>
-                    <li><a href="index.html#ambulanceservice">Ambulance Services</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
-                    <li><a href="login.php">Login</a></li>
-                    <li><a href="signup.php">Sign Up</a></li>
-                </ul>
-            </nav>
-            <a class="btn-getstarted" href="emergency.php">Emergency Booking</a>
-        </div>
-    </header>
+    <?php include 'header.php'; ?>
 
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <ul class="sidebar-nav">
             <li>
-                <a href="dashboard_user.php">
+                <a href="user1.php">
                     <i class="bi bi-grid"></i>
                     <span>Dashboard</span>
                 </a>
@@ -438,12 +419,7 @@ if (!$user) {
                     <span>Booking History</span>
                 </a>
             </li>
-            <li>
-                <a href="emergency_contacts.php">
-                    <i class="bi bi-telephone"></i>
-                    <span>Emergency Contacts</span>
-                </a>
-            </li>
+        
             <li>
                 <a href="logout.php">
                     <i class="bi bi-box-arrow-right"></i>

@@ -21,8 +21,9 @@ $stmt->close();
 $message = ""; // Message to display after form submission
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Retrieve form inputs safely
     $pickup_location = trim($_POST['Pickup_Location'] ?? '');
+    $latitude = trim($_POST['latitude'] ?? '');
+    $longitude = trim($_POST['longitude'] ?? '');
     $service_type = trim($_POST['Service_Type'] ?? '');
     $service_time = trim($_POST['Service_Time'] ?? '');
     $destination = trim($_POST['Destination'] ?? '');
@@ -30,18 +31,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $additional_requirements = trim($_POST['Additional_Requirements'] ?? '');
     $comments = trim($_POST['Comments'] ?? '');
 
-    // Validate required fields
     if (empty($pickup_location) || empty($service_type) || empty($service_time) || empty($destination) || empty($ambulance_type)) {
         $message = "<div class='alert alert-danger'>All required fields must be filled.</div>";
     } else {
-        // Insert data into the prebooking table
+        $comments = !empty($comments) ? $comments : NULL;
         $stmt = $conn->prepare("INSERT INTO tbl_prebooking 
-            (userid, pickup_location, service_type, service_time,  
-            destination, ambulance_type, additional_requirements, comments) 
+            (userid, pickup_location,  service_type, service_time, destination, ambulance_type, additional_requirements, comments) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
         $stmt->bind_param("isssssss", 
-            $user_id, $pickup_location, $service_type, $service_time, 
+            $user_id, $pickup_location,  $service_type, $service_time, 
             $destination, $ambulance_type, $additional_requirements, $comments);
         
         if ($stmt->execute()) {
@@ -56,8 +55,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<!-- Display success or error message -->
-<?php if (!empty($message)) echo $message; ?>
 
 
 <!DOCTYPE html>
@@ -150,6 +147,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             margin-bottom: 20px;
             border: 1px solid #ccc;
         }
+        
 
         .btn-primary {
             background-color:rgb(52, 219, 113);
@@ -163,12 +161,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .sidebar-nav li a.logout-btn {
     color: white;
     font-weight: bold;
-}
+    }
 
-.sidebar-nav li a.logout-btn:hover {
-    color: darkred;
-    text-decoration: underline;
-}
+    .sidebar-nav li a.logout-btn:hover {
+        color: darkred;
+        text-decoration: underline;
+    }
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 10px; /* Adjust spacing */
+        white-space: nowrap; /* Prevents text from wrapping */
+    }
+
+    .user-info i {
+        font-size: 30px;
+    }
+
+    .user-info h2 {
+        font-size: 18px; /* Adjust size if needed */
+        margin: 0; /* Remove default margin */
+        font-weight: normal; /* Make it less bold for a cleaner look */
+    }
+
 
     </style>
 </head>
@@ -197,24 +212,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
     <!-- Sidebar -->
-    <div class="sidebar">
-    <h2><i class="fas fa-user"></i> Welcome, <?php echo $_SESSION['username']; ?></h2>
+<div class="sidebar">
+<div class="user-info">
+    <i class="fas fa-user-circle"></i>
+    <h2><?php echo $_SESSION['username']; ?></h2>
+</div>
+
     <ul class="sidebar-nav">
-        <li><a href="user_profile.php"><i class="fas fa-user"></i> My Profile</a></li>
+        <li><a href="user_profile.php"><i class="fas fa-user"></i> <?php echo $_SESSION['username']; ?>'s Profile</a></li>
         <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
-        <li><a href="feedback.php"><i class="fas fa-th-list"></i> Feedback</a></li>
+        <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
         <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>
 </div>
 
-   <!-- Display success or error message -->
-   <?php if (!empty($message)) echo $message; ?>
+
+   
     <!-- Main Content -->
     <div class="main-content" style="margin-left: 270px;">
         <div class="container">
             <div class="form-container">
+            <?php if (!empty($message)) echo $message; ?>
                 <h2>Pre-Book Ambulance</h2>
                 <form action=" " method="post">
+                
                     <div class="row">
                         <div class="col-md-6">
                             <label for="username">Username</label>
@@ -222,7 +243,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             
 
                             <label for="Pickup_Location">Pickup Location</label>
-                            <input type="text" name="Pickup_Location" id="Pickup_Location" class="form-control" required>
+                            <textarea name="Pickup_Location" id="Pickup_Location" class="form-control" rows="2" required></textarea>
                             
 
                             <label for="Service_Type">Service Type</label>
@@ -233,7 +254,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </select>
 
                             <label for="Service_Time">Service Date and Time</label>
-                          <input type="datetime-local" name="Service_Time" id="Service_Time" class="form-control" required>
+<input type="datetime-local" name="Service_Time" id="Service_Time" class="form-control" required>
+<small id="datetimeError" style="color: red; display: none;">Please select a future date and time.</small>
                            
                           
 
@@ -243,8 +265,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <label for="Phone_Number">Phone Number</label>
                         <input type="tel" name="Phone_Number" id="Phone_Number" class="form-control" pattern="[0-9]{10}"  value="<?php echo htmlspecialchars($user['phoneno']); ?>" required>
 
-                            <label for="Destination">Destination</label>
-                            <input type="text" name="Destination" id="Destination" class="form-control" required>
+                        <label for="Destination">Destination</label>
+                        <textarea name="Destination" id="Destination" class="form-control" rows="2" required></textarea>
+
                             <label for="Ambulance_Type">Ambulance Type</label>
                             <select name="Ambulance_Type" id="Ambulance_Type" class="form-control" required>
                             <option value="">Select Ambulance Type</option>
@@ -262,6 +285,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <option value="Wheelchair">Wheelchair</option>
                         <option value="Oxygen Cylinder">Oxygen Cylinder</option>
                         <option value="Stretcher">Stretcher</option>
+                        <option value="Stretcher">No Additional Requirements</option>
                     </select>
                            
                         </div>
@@ -274,5 +298,66 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
         </div>
     </div>
+    <script>
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition, showError);
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function showPosition(position) {
+            document.getElementById("latitude").value = position.coords.latitude;
+            document.getElementById("longitude").value = position.coords.longitude;
+            document.getElementById("Pickup_Location").value = "Current Location Selected";
+        }
+
+        function showError(error) {
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    alert("User denied the request for Geolocation.");
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    alert("Location information is unavailable.");
+                    break;
+                case error.TIMEOUT:
+                    alert("The request to get user location timed out.");
+                    break;
+                case error.UNKNOWN_ERROR:
+                    alert("An unknown error occurred.");
+                    break;
+            }
+        }
+
+        function validateForm() {
+            let phone = document.getElementById("Phone_Number").value;
+            if (!/^\d{10}$/.test(phone)) {
+                alert("Please enter a valid 10-digit phone number.");
+                return false;
+            }
+
+            let dateTime = document.getElementById("Service_Time").value;
+            let now = new Date();
+            let selectedTime = new Date(dateTime);
+            if (selectedTime < now) {
+                alert("Service time cannot be in the past.");
+                return false;
+            }
+
+            return true;
+        }
+            document.getElementById("Service_Time").addEventListener("change", function() {
+            let inputDateTime = new Date(this.value);
+            let currentDateTime = new Date();
+
+            if (inputDateTime <= currentDateTime) {
+                document.getElementById("datetimeError").style.display = "block";
+                this.value = ""; // Reset input field
+            } else {
+                document.getElementById("datetimeError").style.display = "none";
+            }
+        });
+    </script>
 </body>
 </html>
