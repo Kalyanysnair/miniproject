@@ -83,6 +83,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Palliative Care Request - SwiftAid</title>
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             background-image: url('assets/assets/img//template/Groovin/hero-carousel/ambulance2.jpg');
@@ -91,6 +93,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             background-attachment: fixed;
             min-height: 100vh;
             padding-top: 80px;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: rgba(206, 205, 205, 0.8);
+            color: white;
+            padding: 20px;
+            height: calc(100vh - 80px); /* Full height minus header height */
+            position: fixed;
+            top: 80px; /* Same as header height */
+            left: 0;
+            overflow-y: auto; /* Add scrollbar if content overflows */
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar ul li {
+            margin: 15px 0;
+        }
+
+        .sidebar ul li a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar ul li a:hover {
+            color: #2E8B57;
+        }
+
+        .sidebar ul li a i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .container {
+            margin-left: 250px; /* Adjust for sidebar width */
+            padding: 20px;
+            flex: 1;
         }
 
         .form-container {
@@ -118,23 +165,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             background-color: #f8d7da;
             color: #721c24;
         }
+
         .row {
             display: flex;
             flex-wrap: wrap;
             margin: 0 -15px; /* Adjust spacing */
         }
+
         .col-md-6 {
             flex: 0 0 50%;
             max-width: 50%;
             padding: 0 15px;
         }
+
         .form-group {
             margin-bottom: 1rem;
         }
 
-
         .btn-back {
-            background-color:rgb(50, 117, 69);
+            background-color: rgb(50, 117, 69);
             color: white;
             padding: 8px 20px;
             border: none;
@@ -144,141 +193,134 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .btn-back:hover {
-            background-color:rgb(0, 179, 66);
+            background-color: rgb(0, 179, 66);
         }
-        .btn-submit {
-        background-color:rgb(14, 192, 41); /* Breen color */
-        color: white;
-        padding: 12px 30px;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
 
-    .btn-submit:hover {
-        background-color: #588F63; /* Slightly darker breen color on hover */
-        transform: translateY(-2px);
-    }
+        .btn-submit {
+            background-color: rgb(14, 192, 41); /* Breen color */
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit:hover {
+            background-color: #588F63; /* Slightly darker breen color on hover */
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
-<header id="header" class="header d-flex align-items-center fixed-top">
-        <div class="container-fluid container-xl position-relative d-flex align-items-center">
-            <a href="index.html" class="logo d-flex align-items-center me-auto">
-                <img src="assets/img/SWIFTAID2.png" alt="SWIFTAID Logo" style="height: 70px; margin-right: 10px;">
-                <h1 class="sitename">SWIFTAID</h1>
-            </a>
-            <nav id="navmenu" class="navmenu">
-                <ul>
-                    <li><a href="index.html#hero">Home</a></li>
-                    <li><a href="index.html#about">About</a></li>
-                    <li><a href="index.html#services">Services</a></li>
-                    <li><a href="index.html#ambulanceservice">Ambulance Services</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
-                    <li><a href="login.php">Login</a></li>
-                    <li><a href="signup.php">Sign Up</a></li>
-                </ul>
-            </nav>
-            <a class="btn-getstarted" href="emergency.php">Emergency Booking</a>
-        </div>
-    </header>
+    <?php include 'header.php'; ?>
 
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <ul class="sidebar-nav">
+            <li><a href="user_profile.php"><i class="fas fa-user"></i> <?php echo $_SESSION['username']; ?>'s Profile</a></li>
+            <li><a href="palliative_status.php"><i class="fas fa-list"></i> My Bookings</a></li>
+            <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
+            <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
     <div class="container">
-    <div class="form-container">
-        <h1 style="color:white">Palliative Care Request</h1>
-        <form method="POST" action="" id="palliativeForm">
-            <div class="row">
-                <div class="col-md-6 form-group">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control readonly-field" 
-                           value="<?php echo htmlspecialchars($user_data['username'] ?? ''); ?>" readonly>
+        <div class="form-container">
+            <h1 style="color:white">Palliative Care Request</h1>
+            <form method="POST" action="" id="palliativeForm">
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control readonly-field" 
+                               value="<?php echo htmlspecialchars($user_data['username'] ?? ''); ?>" readonly>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" class="form-control readonly-field" 
+                               value="<?php echo htmlspecialchars($user_data['phoneno'] ?? ''); ?>" readonly>
+                    </div>
                 </div>
-                <div class="col-md-6 form-group">
-                    <label class="form-label">Phone Number</label>
-                    <input type="text" class="form-control readonly-field" 
-                           value="<?php echo htmlspecialchars($user_data['phoneno'] ?? ''); ?>" readonly>
+
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Additional Requirements</label>
+                        <textarea name="requirements" id="requirements" class="form-control" 
+                                  placeholder="Max 100 characters..."></textarea>
+                        <small id="requirementsError" class="text-danger"></small>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Medical Condition <span style="color:red">*</span></label>
+                        <textarea name="medical_condition" id="medical_condition" class="form-control" required 
+                                  placeholder="Please describe the medical condition..."></textarea>
+                        <small id="medicalConditionError" class="text-danger"></small>
+                    </div>
                 </div>
+
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Additional Comments</label>
+                        <textarea name="comments" id="comments" class="form-control" 
+                                  placeholder="Max 100 characters..."></textarea>
+                        <small id="commentsError" class="text-danger"></small>
+                    </div>
+
+                    <div class="col-md-6 form-group">
+                        <label class="form-label">Complete Address <span style="color:red">*</span></label>
+                        <textarea name="address" id="address" class="form-control" required
+                                  placeholder="Enter your complete address..."></textarea>
+                        <small id="addressError" class="text-danger"></small>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" id="submitBtn" class="btn btn-submit" disabled>Submit Request</button>
+                </div>
+            </form>
+
+            <div class="text-center mt-3">
+                <a href="javascript:history.back()" class="btn-back">Back</a>
             </div>
-
-            <div class="row">
-                <div class="col-md-6 form-group">
-                    <label class="form-label">Additional Requirements</label>
-                    <textarea name="requirements" id="requirements" class="form-control" 
-                              placeholder="Max 100 characters..."></textarea>
-                    <small id="requirementsError" class="text-danger"></small>
-                </div>
-                <div class="col-md-6 form-group">
-                    <label class="form-label">Medical Condition <span style="color:red">*</span></label>
-                    <textarea name="medical_condition" id="medical_condition" class="form-control" required 
-                              placeholder="Please describe the medical condition..."></textarea>
-                    <small id="medicalConditionError" class="text-danger"></small>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 form-group">
-                    <label class="form-label">Additional Comments</label>
-                    <textarea name="comments" id="comments" class="form-control" 
-                              placeholder="Max 100 characters..."></textarea>
-                    <small id="commentsError" class="text-danger"></small>
-                </div>
-
-                <div class="col-md-6 form-group">
-                    <label class="form-label">Complete Address <span style="color:red">*</span></label>
-                    <textarea name="address" id="address" class="form-control" required
-                              placeholder="Enter your complete address..."></textarea>
-                    <small id="addressError" class="text-danger"></small>
-                </div>
-            </div>
-
-            <div class="text-center mt-4">
-                <button type="submit" id="submitBtn" class="btn btn-submit" disabled>Submit Request</button>
-            </div>
-        </form>
-
-        <div class="text-center mt-3">
-            <a href="javascript:history.back()" class="btn-back">Back</a>
         </div>
     </div>
-</div>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const medicalConditionField = document.getElementById("medical_condition");
-        const addressField = document.getElementById("address");
-        const requirementsField = document.getElementById("requirements");
-        const commentsField = document.getElementById("comments");
-        const submitBtn = document.getElementById("submitBtn");
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const medicalConditionField = document.getElementById("medical_condition");
+            const addressField = document.getElementById("address");
+            const requirementsField = document.getElementById("requirements");
+            const commentsField = document.getElementById("comments");
+            const submitBtn = document.getElementById("submitBtn");
 
-        function validateField(field, errorField, minLength = 3, maxLength = null) {
-            let value = field.value.trim();
-            if (value.length < minLength) {
-                errorField.textContent = "This field is required.";
-                return false;
-            } else if (maxLength && value.length > maxLength) {
-                errorField.textContent = `Max ${maxLength} characters allowed.`;
-                return false;
-            } else {
-                errorField.textContent = "";
-                return true;
+            function validateField(field, errorField, minLength = 3, maxLength = null) {
+                let value = field.value.trim();
+                if (value.length < minLength) {
+                    errorField.textContent = "This field is required.";
+                    return false;
+                } else if (maxLength && value.length > maxLength) {
+                    errorField.textContent = `Max ${maxLength} characters allowed.`;
+                    return false;
+                } else {
+                    errorField.textContent = "";
+                    return true;
+                }
             }
-        }
 
-        function validateForm() {
-            let medicalValid = validateField(medicalConditionField, document.getElementById("medicalConditionError"));
-            let addressValid = validateField(addressField, document.getElementById("addressError"));
-            let requirementsValid = validateField(requirementsField, document.getElementById("requirementsError"), 0, 100);
-            let commentsValid = validateField(commentsField, document.getElementById("commentsError"), 0, 100);
+            function validateForm() {
+                let medicalValid = validateField(medicalConditionField, document.getElementById("medicalConditionError"));
+                let addressValid = validateField(addressField, document.getElementById("addressError"));
+                let requirementsValid = validateField(requirementsField, document.getElementById("requirementsError"), 0, 100);
+                let commentsValid = validateField(commentsField, document.getElementById("commentsError"), 0, 100);
 
-            submitBtn.disabled = !(medicalValid && addressValid && requirementsValid && commentsValid);
-        }
+                submitBtn.disabled = !(medicalValid && addressValid && requirementsValid && commentsValid);
+            }
 
-        medicalConditionField.addEventListener("input", validateForm);
-        addressField.addEventListener("input", validateForm);
-        requirementsField.addEventListener("input", validateForm);
-        commentsField.addEventListener("input", validateForm);
-    });
-</script>
+            medicalConditionField.addEventListener("input", validateForm);
+            addressField.addEventListener("input", validateForm);
+            requirementsField.addEventListener("input", validateForm);
+            commentsField.addEventListener("input", validateForm);
+        });
+    </script>
 </body>
 </html>

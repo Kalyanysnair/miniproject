@@ -348,7 +348,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
                 <a href="user_profile.php">
                 <span class="user-avatar">👤</span> <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?>
                 </a></li>
-            <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
+            <li><a href="status.php"><i class="fas fa-list"></i> My Bookings</a></li>
             <li><a href="feedback.php"><i class="fas fa-th-list"></i> Feedback</a></li>
             <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
             </ul>

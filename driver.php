@@ -310,10 +310,11 @@
     <aside class="sidebar">
         <ul class="sidebar-nav">
             <li>
-                <a href="driver.php">
-                    <i class="bi bi-grid"></i>
-                    <span>Dashboard</span>
-                </a>
+            <a href="driver.php">
+                <!-- <i class="bi bi-grid"></i> -->
+                <span><i class="bi bi-person-circle"></i> <!-- User icon -->
+                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span></span>
+            </a>
             </li>
             <li>
                 <a href="driver_profile.php">
@@ -328,7 +329,7 @@
                 </a>
             </li>
             <li>
-                <a href="admin_review.php">
+                <a href="driver_review.php">
                     <i class="bi bi-clock-history"></i>
                     <span>feedback</span>
                 </a>
@@ -344,10 +345,10 @@
 
 
     <main class="main">
-        <div class="dashboard-card">
+        <!-- <div class="dashboard-card">
             <h2>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?></h2>
-            <!-- <p>You are operating a <strong><?php echo htmlspecialchars($ambulance_type); ?></strong> ambulance.</p> -->
-        </div>
+             <p>You are operating a <strong><?php echo htmlspecialchars($ambulance_type); ?></strong> ambulance.</p>
+        </div>  -->
 
         <div class="dashboard-card">
     <h3>Emergency Requests </h3>
@@ -443,54 +444,18 @@
     <script>
     $(document).ready(function() {
     $(".accept-form").on("submit", function(e) {
-        e.preventDefault();
+        // Don't prevent default form submission behavior
+        // Instead, just confirm and proceed with normal form submission
         
         if (!confirm("Are you sure you want to accept this request?")) {
-            return;
+            e.preventDefault(); // Only prevent default if user clicks Cancel
+            return false;
         }
-
-        let form = $(this);
-
-        $.ajax({
-            url: "handle_request.php",
-            type: "POST",
-            data: form.serialize(),
-            dataType: "json",
-            success: function(response) {
-                console.log("Server Response:", response); // Debugging
-
-                if (response.success) {
-                    // Show success message dynamically
-                    let successMessage = $("<div class='success-msg'>✔ Request accepted successfully!</div>");
-                    successMessage.css({
-                        "color": "green",
-                        "padding": "10px",
-                        "margin-top": "10px",
-                        "border": "1px solid green",
-                        "border-radius": "5px",
-                        "display": "none",
-                        "background": "#d4edda"
-                    });
-
-                    form.after(successMessage);
-                    successMessage.fadeIn(300).delay(2000).fadeOut(500);
-
-                    form.find("button").text("Accepted").prop("disabled", true);
-                    
-                    // Optionally fade out the request card
-                    form.closest(".request-card").fadeOut(500);
-                } else {
-                    alert(response.message || "An error occurred.");
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error("AJAX Error:", xhr.responseText); // Debugging
-                alert("An error occurred while processing the request.");
-            }
-        });
+        
+        // Allow the form to submit normally (will redirect to the handler page)
+        return true;
     });
 });
-
-    </script>
+</script>
 </body>
 </html>

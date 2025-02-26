@@ -11,52 +11,29 @@ $userid = $_SESSION['user_id'];
 $error_message = "";
 
 try {
-    // Step 1: Fetch the user's name and phone number from the user table
-    $user_query = "SELECT username, phoneno FROM tbl_user WHERE userid = ?";
-    $stmt = $conn->prepare($user_query);
+    // Fetch prebookings for the logged-in user
+    $prebookings_query = "
+        SELECT 
+            prebookingid,
+            userid,
+            pickup_location,
+            destination,
+            service_type,
+            service_time,
+            ambulance_type,
+            status,
+            created_at
+        FROM tbl_prebooking 
+        WHERE userid = ? 
+        ORDER BY created_at DESC";
+        
+    $stmt = $conn->prepare($prebookings_query);
     if (!$stmt) {
         throw new Exception("Prepare failed: " . $conn->error);
     }
     $stmt->bind_param("i", $userid);
     $stmt->execute();
-    $user_result = $stmt->get_result();
-    $user = $user_result->fetch_assoc();
-
-    if (!$user) {
-        throw new Exception("User not found.");
-    }
-
-    // Debug: Check the fetched name and phone number
-    $patient_name = $user['username']; // Assuming 'username' is the user's name
-    $contact_phone = $user['phoneno'];
-
-    // Step 2: Fetch emergency bookings using the name and phone number
-    $emergency_query = "
-        SELECT 
-            request_id,
-            userid,
-            pickup_location,
-            contact_phone,
-            status,
-            created_at,
-            ambulance_type,
-            patient_name
-        FROM tbl_emergency 
-        WHERE patient_name = ? AND contact_phone = ? 
-        ORDER BY created_at DESC";
-        
-    $stmt = $conn->prepare($emergency_query);
-    if (!$stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
-    $stmt->bind_param("ss", $patient_name, $contact_phone);
-    $stmt->execute();
-    $emergency_bookings = $stmt->get_result();
-
-    // Debug: Check if data is fetched
-    if ($emergency_bookings->num_rows === 0) {
-        $error_message = "No emergency bookings found for the user.";
-    }
+    $prebookings = $stmt->get_result();
 
 } catch (Exception $e) {
     $error_message = "An error occurred while fetching your bookings. Please try again later.";
@@ -69,9 +46,11 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Requests</title>
+    <title>Prebooking Requests</title>
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -79,8 +58,8 @@ try {
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            margin-top: 80px;
-            padding: 0px;
+            margin-top: 50px;
+            padding: 0;
             display: flex;
         }
 
@@ -91,7 +70,7 @@ try {
             padding: 20px;
             height: 100vh;
             position: fixed;
-            margin-top: 80;
+            margin-top: 80px;
             left: 0;
         }
 
@@ -113,10 +92,17 @@ try {
             color: white;
             text-decoration: none;
             font-size: 16px;
+            display: flex;
+            align-items: center;
         }
 
         .sidebar ul li a:hover {
             color: #2E8B57;
+        }
+
+        .sidebar ul li a i {
+            margin-right: 10px;
+            font-size: 18px;
         }
 
         .container {
@@ -129,6 +115,7 @@ try {
             background: rgba(255, 255, 255, 0.9);
             border-radius: 10px;
             padding: 20px;
+            padding-top:40px;
             margin-bottom: 20px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
@@ -220,6 +207,7 @@ try {
     </style>
 </head>
 <body>
+<?php include 'header.php'; ?>
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="user-info"><a href="user1.php">
@@ -237,7 +225,7 @@ try {
 
     <!-- Main Content -->
     <div class="container">
-        <?php include 'header.php'; ?>
+       
 
         <?php if ($error_message): ?>
             <div class="error-message">
@@ -245,17 +233,18 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- Emergency Requests -->
+        <!-- Prebookings -->
         <div class="card">
-            <h2>Emergency Requests</h2>
-            <?php if ($emergency_bookings && $emergency_bookings->num_rows > 0): ?>
+            <h2>Prebooking Requests</h2>
+            <?php if ($prebookings && $prebookings->num_rows > 0): ?>
                 <table>
                     <thead>
                         <tr>
                             <th>Booking ID</th>
-                            <th>Patient Name</th>
-                            <th>Contact</th>
-                            <th>Location</th>
+                            <th>Pickup Location</th>
+                            <th>Destination</th>
+                            <th>Service Type</th>
+                            <th>Service Time</th>
                             <th>Ambulance Type</th>
                             <th>Status</th>
                             <th>Date</th>
@@ -263,12 +252,13 @@ try {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php while ($booking = $emergency_bookings->fetch_assoc()): ?>
+                        <?php while ($booking = $prebookings->fetch_assoc()): ?>
                             <tr>
-                                <td>#<?php echo htmlspecialchars($booking['request_id']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['patient_name']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['contact_phone']); ?></td>
+                                <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['destination']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['service_type']); ?></td>
+                                <td><?php echo date('d M Y, h:i A', strtotime($booking['service_time'])); ?></td>
                                 <td><?php echo htmlspecialchars($booking['ambulance_type']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
@@ -278,7 +268,7 @@ try {
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
-                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>)">
+                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>)">
                                             Pay Now
                                         </button>
                                     <?php endif; ?>
@@ -288,15 +278,15 @@ try {
                     </tbody>
                 </table>
             <?php else: ?>
-                <p>No emergency requests found.</p>
+                <p>No prebookings found.</p>
             <?php endif; ?>
         </div>
     </div>
 
     <script>
-        function proceedToPayment(requestId) {
+        function proceedToPayment(prebookingId) {
             if (confirm('Do you want to proceed to payment for this completed service?')) {
-                window.location.href = 'payment.php?request_id=' + requestId;
+                window.location.href = 'payment.php?prebooking_id=' + prebookingId;
             }
         }
 

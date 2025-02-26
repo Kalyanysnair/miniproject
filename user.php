@@ -213,14 +213,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <!-- Sidebar -->
 <div class="sidebar">
+    <a href="user1.php">
 <div class="user-info">
     <i class="fas fa-user-circle"></i>
     <h2><?php echo $_SESSION['username']; ?></h2>
 </div>
+</a>
 
     <ul class="sidebar-nav">
-        <li><a href="user_profile.php"><i class="fas fa-user"></i> <?php echo $_SESSION['username']; ?>'s Profile</a></li>
-        <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
+        <li><a href="user_profile.php"><i class="fas fa-user"></i>  Profile</a></li>
+        <li><a href="prebooking_status.php"><i class="fas fa-list"></i> My Bookings</a></li>
         <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
         <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>

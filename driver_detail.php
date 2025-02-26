@@ -140,8 +140,8 @@ $conn->close();
             font-weight: bold;
         }
 
-        .delete-btn {
-            background-color: red;
+                .toggle-status-btn {
+            background-color: #4CAF50; /* Green for active */
             color: white;
             border: none;
             padding: 5px 10px;
@@ -149,8 +149,8 @@ $conn->close();
             border-radius: 5px;
         }
 
-        .delete-btn:hover {
-            background-color: darkred;
+        .toggle-status-btn.inactive {
+            background-color: #f44336; /* Red for inactive */
         }
     </style>
 </head>
@@ -203,10 +203,13 @@ $conn->close();
             
             <td><?php echo htmlspecialchars($driver['vehicleno']); ?></td>
             <td><?php echo htmlspecialchars($driver['ambulance_type']); ?></td>
-          
+            
             <td>
-                <button class="delete-btn" data-driverid="<?php echo htmlspecialchars($driver['driverid']); ?>">Delete</button>
-            </td>
+    <button class="toggle-status-btn <?php echo $driver['status'] === 'inactive' ? 'inactive' : ''; ?>" data-driverid="<?php echo htmlspecialchars($driver['driverid']); ?>">
+        <?php echo $driver['status'] === 'active' ? 'Deactivate' : 'Activate'; ?>
+    </button>
+</td>
+
         </tr>
         <?php endforeach; ?>
     </table>
@@ -215,21 +218,31 @@ $conn->close();
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Handle delete button click
-    $('.delete-btn').on('click', function() {
+    // Handle toggle status button click
+    $('.toggle-status-btn').on('click', function() {
         const driverId = $(this).data('driverid');
         const row = $(this).closest('tr');
+        const statusCell = row.find('td:nth-child(7)');
+        const button = $(this);
 
-        if (confirm('Are you sure you want to deactivate this driver?')) {
+        if (confirm('Are you sure you want to toggle this driver\'s status?')) {
             $.ajax({
-                url: 'delete_driver.php',
+                url: 'delete_driver.php', // Updated to use the same file
                 type: 'POST',
                 data: { driver_id: driverId },
                 success: function(response) {
-                    if (response.trim() === 'success') {
+                    if (response === 'active' || response === 'inactive') {
                         // Update the status in the table
-                        row.find('td:nth-child(7)').text('inactive').addClass('status-inactive');
-                        alert('Driver deactivated successfully');
+                        statusCell.text(response);
+                        if (response === 'inactive') {
+                            statusCell.addClass('status-inactive');
+                        } else {
+                            statusCell.removeClass('status-inactive');
+                        }
+
+                        // Update the button text
+                        button.text(response === 'active' ? 'Deactivate' : 'Activate');
+                        alert('Driver status updated successfully');
                     } else {
                         alert('Error: ' + response);
                     }

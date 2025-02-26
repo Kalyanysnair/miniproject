@@ -106,7 +106,7 @@ $review_count = $result->num_rows;
 
     <div class="admin-container">
         <h2>All User Reviews</h2>
-        <a href="admin.php" class="back-btn">Back </a>
+        <a href="driver.php" class="back-btn">Back </a>
         <!-- Display the count of reviews -->
         <div class="review-count" style="color:brown">
             Total Reviews: <?php echo $review_count; ?>  

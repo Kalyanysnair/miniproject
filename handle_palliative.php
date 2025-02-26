@@ -59,7 +59,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                         SELECT 
                             u.username AS patient_name, 
                             u.phoneno AS contact_phone, 
-                            p.address AS pickup_location, 
+                            p.address AS pickup_location,
+                            p.created_at, 
                             u.email 
                         FROM tbl_palliative p 
                         LEFT JOIN tbl_user u ON p.userid = u.userid 
@@ -198,6 +199,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                 margin: 10px;
             }
         }
+        .dashboard-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 30px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        .dashboard-btn:hover {
+            background-color: #218838;
+            color: white;
+            text-decoration: none;
+        }
+        .btn-container {
+            text-align: center;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -247,10 +266,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                     <td><strong>Pickup Location:</strong></td>
                     <td><?php echo htmlspecialchars($request_data['pickup_location'] ?? '-'); ?></td>
                 </tr>
+                <tr>
+                        <td><strong>Request Time<strong></td>
+                        <td><?php echo htmlspecialchars($request_data['created_at'] ?? '-'); ?></td>
+                    </tr>
             </table>
         <?php else: ?>
             <p class="text-center">No request details available.</p>
         <?php endif; ?>
+        <div class="btn-container">
+            <a href="driver.php" class="dashboard-btn">Return to Dashboard</a>
+        </div>
     </div>
 
     <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>

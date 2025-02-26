@@ -14,57 +14,76 @@ $error_message = "";
 
 // Handle form submission for profile updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
-    // Get user form data
-    $email = $_POST['email'];
-    $phone = $_POST['phoneno'];
+    // Trim input data
+    $email = trim($_POST['email']);
+    $phone = trim($_POST['phoneno']);
+    $license = trim($_POST['license']);
+    $service_area = trim($_POST['service_area']);
+    $vehicle_no = trim($_POST['vehicle_no']);
+    $ambulance_type = trim($_POST['ambulance_type']);
     
-    // Get driver form data
-    $license = $_POST['license'];
-    $service_area = $_POST['service_area'];
-    $vehicle_no = $_POST['vehicle_no'];
-    $ambulance_type = $_POST['ambulance_type'];
+    // Input validation
+    $errors = [];
     
-    // Get user ID
-    $user_id_query = "SELECT userid FROM tbl_user WHERE username = ?";
-    $stmt = $mysqli->prepare($user_id_query);
-    $stmt->bind_param("s", $driver_username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user_row = $result->fetch_assoc();
-    $userid = $user_row['userid'];
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Invalid email format.";
+    }
     
-    // Update user table
-    $update_user = "UPDATE tbl_user SET email = ?, phoneno = ? WHERE userid = ?";
-    $stmt = $mysqli->prepare($update_user);
+    if (!preg_match("/^[6-9]\d{9}$/", $phone)) {
+        $errors[] = "Phone number must be 10 digits and start with a number from 6-9.";
+    }
     
-    if (!$stmt) {
-        $error_message = "User Update Failed: " . $mysqli->error;
-    } else {
-        $stmt->bind_param("ssi", $email, $phone, $userid);
+    if (!preg_match("/^KL-\d{2} \d{11}$/", $license)) {
+        $errors[] = "Please enter a valid license number (e.g., KL-12 12345678901).";
+    }
+    
+    if (!preg_match("/^[A-Z]{2}-\d{1,2}-[A-Z]{1,2}-\d{4}$/", $vehicle_no)) {
+        $errors[] = "Please enter a valid vehicle number.";
+    }
+    
+    if (empty($ambulance_type)) {
+        $errors[] = "Ambulance type is required.";
+    }
+    
+    if (empty($service_area)) {
+        $errors[] = "Service area is required.";
+    }
+    
+    if (empty($errors)) {
+        // Get user ID
+        $stmt = $mysqli->prepare("SELECT userid FROM tbl_user WHERE username = ?");
+        $stmt->bind_param("s", $driver_username);
         $stmt->execute();
+        $result = $stmt->get_result();
+        $user_row = $result->fetch_assoc();
+        $userid = $user_row['userid'] ?? null;
         
-        // Update driver table
-        $update_driver = "UPDATE tbl_driver SET lisenceno = ?, service_area = ?, vehicle_no = ?, ambulance_type = ? WHERE userid = ?";
-        $stmt = $mysqli->prepare($update_driver);
-        
-        if (!$stmt) {
-            $error_message = "Driver Update Failed: " . $mysqli->error;
+        if ($userid) {
+            // Update user table
+            $stmt = $mysqli->prepare("UPDATE tbl_user SET email = ?, phoneno = ? WHERE userid = ?");
+            $stmt->bind_param("ssi", $email, $phone, $userid);
+            if ($stmt->execute()) {
+                // Update driver table
+                $stmt = $mysqli->prepare("UPDATE tbl_driver SET lisenceno = ?, service_area = ?, vehicle_no = ?, ambulance_type = ? WHERE userid = ?");
+                $stmt->bind_param("ssssi", $license, $service_area, $vehicle_no, $ambulance_type, $userid);
+                if ($stmt->execute()) {
+                    $success_message = "Profile updated successfully!";
+                } else {
+                    $error_message = "Driver update failed: " . $stmt->error;
+                }
+            } else {
+                $error_message = "User update failed: " . $stmt->error;
+            }
         } else {
-            $stmt->bind_param("ssssi", $license, $service_area, $vehicle_no, $ambulance_type, $userid);
-            $stmt->execute();
-            $success_message = "Profile updated successfully!";
+            $error_message = "User not found.";
         }
+    } else {
+        $error_message = implode("<br>", $errors);
     }
 }
 
-// First, get user details
-$user_query = "SELECT userid, username, email, phoneno, status FROM tbl_user WHERE username = ?";
-$stmt = $mysqli->prepare($user_query);
-
-if (!$stmt) {
-    die("User Query Preparation Failed: " . $mysqli->error);
-}
-
+// Fetch user details
+$stmt = $mysqli->prepare("SELECT userid, username, email, phoneno,status FROM tbl_user WHERE username = ?");
 $stmt->bind_param("s", $driver_username);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -76,25 +95,18 @@ if (!$user) {
 
 $userid = $user['userid'];
 
-// Now, get driver details
-$driver_query = "SELECT lisenceno, service_area, vehicle_no, ambulance_type, created_at 
-                FROM tbl_driver WHERE userid = ?";
-$stmt = $mysqli->prepare($driver_query);
-
-if (!$stmt) {
-    die("Driver Query Preparation Failed: " . $mysqli->error);
-}
-
+// Fetch driver details
+$stmt = $mysqli->prepare("SELECT lisenceno, service_area, vehicle_no, ambulance_type,created_at FROM tbl_driver WHERE userid = ?");
 $stmt->bind_param("i", $userid);
 $stmt->execute();
 $result = $stmt->get_result();
 $driver = $result->fetch_assoc();
 
-// For debugging
 if (!$driver) {
-    $error_message = "Driver details not found for user ID $userid. This means you are registered as a driver but your driver details are missing.";
+    $error_message = "Driver details not found for user ID $userid.";
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -480,39 +492,43 @@ if (!$driver) {
 
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
-        <ul class="sidebar-nav">
-            <li>
-                <a href="dashboard_driver.php">
-                    <i class="bi bi-grid"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-            <li>
-                <a href="driver_profile.php">
-                    <i class="bi bi-person"></i>
-                    <span>My Profile</span>
-                </a>
-            </li>
-            <li>
-                <a href="driverPreviousJob.php">
-                    <i class="bi bi-clock-history"></i>
-                    <span>Previous Jobs</span>
-                </a>
-            </li>
-            <li>
-                <a href="admin_review.php">
-                    <i class="bi bi-star"></i>
-                    <span>Feedback</span>
-                </a>
-            </li>
-            <li>
-                <a href="logout.php">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
-                </a>
-            </li>
-        </ul>
-    </aside>
+   
+
+    <!-- Sidebar Navigation -->
+    <ul class="sidebar-nav">
+        <li>
+            <a href="driver.php">
+                <!-- <i class="bi bi-grid"></i> -->
+                <span><i class="bi bi-person-circle"></i> <!-- User icon -->
+                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span></span>
+            </a>
+        </li>
+        <li>
+            <a href="driver_profile.php">
+                <i class="bi bi-person"></i>
+                <span>My Profile</span>
+            </a>
+        </li>
+        <li>
+            <a href="driverPreviousJob.php">
+                <i class="bi bi-clock-history"></i>
+                <span>Previous Jobs</span>
+            </a>
+        </li>
+        <li>
+            <a href="admin_review.php">
+                <i class="bi bi-star"></i>
+                <span>Feedback</span>
+            </a>
+        </li>
+        <li>
+            <a href="logout.php">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </a>
+        </li>
+    </ul>
+</aside>
 
     <!-- Main Content -->
     <main class="main">

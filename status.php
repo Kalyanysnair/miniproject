@@ -26,9 +26,11 @@ try {
         throw new Exception("User not found.");
     }
 
-    // Debug: Check the fetched name and phone number
+    //Debug: Check the fetched name and phone number
     $patient_name = $user['username']; // Assuming 'username' is the user's name
     $contact_phone = $user['phoneno'];
+    // echo "Debug: Fetched name: " . $patient_name . "<br>"; // Debug: Print the fetched name
+    // echo "Debug: Fetched phone number: " . $contact_phone . "<br>"; // Debug: Print the fetched phone number
 
     // Step 2: Fetch emergency bookings using the name and phone number
     $emergency_query = "
@@ -56,7 +58,55 @@ try {
     // Debug: Check if data is fetched
     if ($emergency_bookings->num_rows === 0) {
         $error_message = "No emergency bookings found for the user.";
+        // echo "Debug: No rows found for name: " . $patient_name . " and phone: " . $contact_phone . "<br>"; // Debug: Print if no rows are found
+    } else {
+        // echo "Debug: Rows found: " . $emergency_bookings->num_rows . "<br>"; // Debug: Print the number of rows found
     }
+
+    // Fetch prebookings
+    $prebookings_query = "
+        SELECT 
+            prebookingid,
+            userid,
+            pickup_location,
+            destination,
+            service_type,
+            service_time,
+            ambulance_type,
+            status,
+            created_at
+        FROM tbl_prebooking 
+        WHERE userid = ? 
+        ORDER BY created_at DESC";
+        
+    $stmt = $conn->prepare($prebookings_query);
+    if (!$stmt) {
+        throw new Exception("Prepare failed: " . $conn->error);
+    }
+    $stmt->bind_param("i", $userid);
+    $stmt->execute();
+    $prebookings = $stmt->get_result();
+
+    // Fetch palliative bookings
+    $palliative_query = "
+        SELECT 
+            palliativeid,
+            userid,
+            address,
+            medical_condition,
+            status,
+            created_at
+        FROM tbl_palliative 
+        WHERE userid = ? 
+        ORDER BY created_at DESC";
+        
+    $stmt = $conn->prepare($palliative_query);
+    if (!$stmt) {
+        throw new Exception("Prepare failed: " . $conn->error);
+    }
+    $stmt->bind_param("i", $userid);
+    $stmt->execute();
+    $palliative = $stmt->get_result();
 
 } catch (Exception $e) {
     $error_message = "An error occurred while fetching your bookings. Please try again later.";
@@ -69,7 +119,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Requests</title>
+    <title>Booking Status</title>
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
     <style>
@@ -138,6 +188,24 @@ try {
             border-bottom: 2px solid #2E8B57;
             padding-bottom: 10px;
             margin-bottom: 20px;
+        }
+
+        .booking-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .detail-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #2E8B57;
         }
 
         table {
@@ -216,24 +284,29 @@ try {
             .container {
                 margin-left: 0;
             }
+
+            .booking-details {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
+    
     <div class="sidebar">
-        <div class="user-info"><a href="user1.php">
-            <i class="fas fa-user-circle"></i>
-            <?php echo $_SESSION['username']; ?></a>
-        </div>
+<div class="user-info"><a href="user1.php">
+    <i class="fas fa-user-circle"></i>
+    <?php echo $_SESSION['username']; ?></a>
+</div>
 
-        <ul class="sidebar-nav">
-            <li><a href="user_profile.php"><i class="fas fa-user"></i> Profile</a></li>
-            
-            <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
-            <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
-    </div>
+    <ul class="sidebar-nav">
+        
+        <li><a href="user_profile.php"><i class="fas fa-user"></i>  Profile</a></li>
+        <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
+        <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+</div>
 
     <!-- Main Content -->
     <div class="container">
@@ -289,6 +362,82 @@ try {
                 </table>
             <?php else: ?>
                 <p>No emergency requests found.</p>
+            <?php endif; ?>
+        </div>
+
+        <!-- Prebookings -->
+        <div class="card">
+            <h2>Prebookings</h2>
+            <?php if ($prebookings && $prebookings->num_rows > 0): ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Booking ID</th>
+                            <th>Pickup Location</th>
+                            <th>Destination</th>
+                            <th>Service Type</th>
+                            <th>Service Time</th>
+                            <th>Ambulance Type</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($booking = $prebookings->fetch_assoc()): ?>
+                            <tr>
+                                <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['destination']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['service_type']); ?></td>
+                                <td><?php echo date('d M Y, h:i A', strtotime($booking['service_time'])); ?></td>
+                                <td><?php echo htmlspecialchars($booking['ambulance_type']); ?></td>
+                                <td>
+                                    <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
+                                        <?php echo htmlspecialchars($booking['status']); ?>
+                                    </span>
+                                </td>
+                                <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p>No prebookings found.</p>
+            <?php endif; ?>
+        </div>
+
+        <!-- Palliative Bookings -->
+        <div class="card">
+            <h2>Palliative Bookings</h2>
+            <?php if ($palliative && $palliative->num_rows > 0): ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Booking ID</th>
+                            <th>Address</th>
+                            <th>Medical Condition</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($booking = $palliative->fetch_assoc()): ?>
+                            <tr>
+                                <td>#<?php echo htmlspecialchars($booking['palliativeid']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['address']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['medical_condition']); ?></td>
+                                <td>
+                                    <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
+                                        <?php echo htmlspecialchars($booking['status']); ?>
+                                    </span>
+                                </td>
+                                <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p>No palliative bookings found.</p>
             <?php endif; ?>
         </div>
     </div>

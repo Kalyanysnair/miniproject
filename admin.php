@@ -281,7 +281,7 @@ body {
             </div>
         </div>
         <div class="stats-grid">
-        <div class="stat-card">
+        <!-- <div class="stat-card">
                 <h3>Ambulance</h3>
                 <p class="display-4">0</p>
             </div>
@@ -292,7 +292,7 @@ body {
             <div class="stat-card">
                 <h3>Feedback</h3>
                 <p class="display-4">0</p>
-            </div>
+            </div> -->
         </div>
 
         

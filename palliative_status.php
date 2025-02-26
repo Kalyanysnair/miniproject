@@ -11,52 +11,26 @@ $userid = $_SESSION['user_id'];
 $error_message = "";
 
 try {
-    // Step 1: Fetch the user's name and phone number from the user table
-    $user_query = "SELECT username, phoneno FROM tbl_user WHERE userid = ?";
-    $stmt = $conn->prepare($user_query);
+    // Fetch palliative bookings for the logged-in user
+    $palliative_query = "
+        SELECT 
+            palliativeid,
+            userid,
+            address,
+            medical_condition,
+            status,
+            created_at
+        FROM tbl_palliative 
+        WHERE userid = ? 
+        ORDER BY created_at DESC";
+        
+    $stmt = $conn->prepare($palliative_query);
     if (!$stmt) {
         throw new Exception("Prepare failed: " . $conn->error);
     }
     $stmt->bind_param("i", $userid);
     $stmt->execute();
-    $user_result = $stmt->get_result();
-    $user = $user_result->fetch_assoc();
-
-    if (!$user) {
-        throw new Exception("User not found.");
-    }
-
-    // Debug: Check the fetched name and phone number
-    $patient_name = $user['username']; // Assuming 'username' is the user's name
-    $contact_phone = $user['phoneno'];
-
-    // Step 2: Fetch emergency bookings using the name and phone number
-    $emergency_query = "
-        SELECT 
-            request_id,
-            userid,
-            pickup_location,
-            contact_phone,
-            status,
-            created_at,
-            ambulance_type,
-            patient_name
-        FROM tbl_emergency 
-        WHERE patient_name = ? AND contact_phone = ? 
-        ORDER BY created_at DESC";
-        
-    $stmt = $conn->prepare($emergency_query);
-    if (!$stmt) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
-    $stmt->bind_param("ss", $patient_name, $contact_phone);
-    $stmt->execute();
-    $emergency_bookings = $stmt->get_result();
-
-    // Debug: Check if data is fetched
-    if ($emergency_bookings->num_rows === 0) {
-        $error_message = "No emergency bookings found for the user.";
-    }
+    $palliative = $stmt->get_result();
 
 } catch (Exception $e) {
     $error_message = "An error occurred while fetching your bookings. Please try again later.";
@@ -69,9 +43,11 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Requests</title>
+    <title>Palliative Requests</title>
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -80,7 +56,7 @@ try {
             background-position: center;
             background-attachment: fixed;
             margin-top: 80px;
-            padding: 0px;
+            padding: 0;
             display: flex;
         }
 
@@ -89,10 +65,11 @@ try {
             background: rgba(206, 205, 205, 0.8);
             color: white;
             padding: 20px;
-            height: 100vh;
+            height: calc(100vh - 80px); /* Full height minus header height */
             position: fixed;
-            margin-top: 80;
+            top: 80px; /* Same as header height */
             left: 0;
+            overflow-y: auto; /* Add scrollbar if content overflows */
         }
 
         .sidebar h2 {
@@ -113,10 +90,17 @@ try {
             color: white;
             text-decoration: none;
             font-size: 16px;
+            display: flex;
+            align-items: center;
         }
 
         .sidebar ul li a:hover {
             color: #2E8B57;
+        }
+
+        .sidebar ul li a i {
+            margin-right: 10px;
+            font-size: 18px;
         }
 
         .container {
@@ -131,6 +115,8 @@ try {
             padding: 20px;
             margin-bottom: 20px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            height: calc(100vh - 120px); /* Full height minus header and padding */
+            overflow-y: auto; /* Add scrollbar if content overflows */
         }
 
         .card h2 {
@@ -229,7 +215,7 @@ try {
 
         <ul class="sidebar-nav">
             <li><a href="user_profile.php"><i class="fas fa-user"></i> Profile</a></li>
-            
+            <li><a href="my_bookings.php"><i class="fas fa-list"></i> My Bookings</a></li>
             <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
             <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
@@ -245,31 +231,27 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- Emergency Requests -->
+        <!-- Palliative Requests -->
         <div class="card">
-            <h2>Emergency Requests</h2>
-            <?php if ($emergency_bookings && $emergency_bookings->num_rows > 0): ?>
+            <h2>Palliative Requests</h2>
+            <?php if ($palliative && $palliative->num_rows > 0): ?>
                 <table>
                     <thead>
                         <tr>
                             <th>Booking ID</th>
-                            <th>Patient Name</th>
-                            <th>Contact</th>
-                            <th>Location</th>
-                            <th>Ambulance Type</th>
+                            <th>Address</th>
+                            <th>Medical Condition</th>
                             <th>Status</th>
                             <th>Date</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php while ($booking = $emergency_bookings->fetch_assoc()): ?>
+                        <?php while ($booking = $palliative->fetch_assoc()): ?>
                             <tr>
-                                <td>#<?php echo htmlspecialchars($booking['request_id']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['patient_name']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['contact_phone']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['ambulance_type']); ?></td>
+                                <td>#<?php echo htmlspecialchars($booking['palliativeid']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['address']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['medical_condition']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
                                         <?php echo htmlspecialchars($booking['status']); ?>
@@ -278,7 +260,7 @@ try {
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
-                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>)">
+                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>)">
                                             Pay Now
                                         </button>
                                     <?php endif; ?>
@@ -288,15 +270,15 @@ try {
                     </tbody>
                 </table>
             <?php else: ?>
-                <p>No emergency requests found.</p>
+                <p>No palliative bookings found.</p>
             <?php endif; ?>
         </div>
     </div>
 
     <script>
-        function proceedToPayment(requestId) {
+        function proceedToPayment(palliativeId) {
             if (confirm('Do you want to proceed to payment for this completed service?')) {
-                window.location.href = 'payment.php?request_id=' + requestId;
+                window.location.href = 'payment.php?palliative_id=' + palliativeId;
             }
         }
 

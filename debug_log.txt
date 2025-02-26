@@ -1,0 +1,90 @@
+=== POST Data === 2025-02-26 16:28:08 ===
+Array
+(
+    [patient_name] => Thamburu
+    [pickup_location] => 9.5582435, 76.7091275
+    [ambulance_type] => Basic
+    [contact_phone] => 9778257896
+    [date] => 2025-02-26
+    [time] => 16:27
+)
+
+
+=== Sanitized Input === 2025-02-26 16:28:08 ===
+Array
+(
+    [patient_name] => Thamburu
+    [pickup_location] => 9.5582435, 76.7091275
+    [contact_phone] => 9778257896
+    [ambulance_type] => Basic
+)
+
+
+=== SQL Query === 2025-02-26 16:28:08 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Thamburu', '9.5582435, 76.7091275', '9778257896', 'Basic', 'Pending')
+
+=== Success === 2025-02-26 16:28:08 ===
+Insert successful. Request ID: 38
+
+=== POST Data === 2025-02-26 16:53:49 ===
+Array
+(
+    [patient_name] => Riyadh K
+    [pickup_location] => 9.5582435, 76.7091275
+    [ambulance_type] => Advanced
+    [contact_phone] => 9778257896
+    [date] => 2025-02-26
+    [time] => 16:53
+)
+
+
+=== Sanitized Input === 2025-02-26 16:53:49 ===
+Array
+(
+    [patient_name] => Riyadh K
+    [pickup_location] => 9.5582435, 76.7091275
+    [contact_phone] => 9778257896
+    [ambulance_type] => Advanced
+)
+
+
+=== SQL Query === 2025-02-26 16:53:49 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Riyadh K', '9.5582435, 76.7091275', '9778257896', 'Advanced', 'Pending')
+
+=== Success === 2025-02-26 16:53:49 ===
+Insert successful. Request ID: 39
+
+=== POST Data === 2025-02-26 16:57:31 ===
+Array
+(
+    [patient_name] => Thamburu
+    [pickup_location] => 9.5582435, 76.7091275
+    [ambulance_type] => Advanced
+    [contact_phone] => 9778237180
+    [date] => 2025-02-26
+    [time] => 16:57
+)
+
+
+=== Sanitized Input === 2025-02-26 16:57:31 ===
+Array
+(
+    [patient_name] => Thamburu
+    [pickup_location] => 9.5582435, 76.7091275
+    [contact_phone] => 9778237180
+    [ambulance_type] => Advanced
+)
+
+
+=== SQL Query === 2025-02-26 16:57:31 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Thamburu', '9.5582435, 76.7091275', '9778237180', 'Advanced', 'Pending')
+
+=== Success === 2025-02-26 16:57:31 ===
+Insert successful. Request ID: 40
+

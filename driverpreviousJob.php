@@ -16,45 +16,39 @@ $success_message = "";
 if (isset($_POST['complete_request'])) {
     $request_id = $_POST['request_id'];
     $request_type = $_POST['request_type'];
+    
     try {
-        switch($request_type) {
+        switch ($request_type) {
             case 'palliative':
-                $update_query = "UPDATE tbl_palliative SET status = 'Completed', updated_at = CURRENT_TIMESTAMP WHERE palliativeid = ?";
-                $stmt = $conn->prepare($update_query);
-                if ($stmt === false) {
-                    throw new Exception("Prepare failed: " . $conn->error);
-                }
-                $stmt->bind_param("i", $request_id);
+                $update_query = "UPDATE tbl_palliative SET status = 'Completed', updated_at = CURRENT_TIMESTAMP WHERE palliativeid = ? AND driver_id = ?";
                 break;
-                
+
             case 'prebooking':
-                // Simple varchar(20) field, no enum constraints
-                $update_query = "UPDATE tbl_prebooking SET status = 'Completed' WHERE prebookingid = ?";
-                $stmt = $conn->prepare($update_query);
-                if ($stmt === false) {
-                    throw new Exception("Prepare failed: " . $conn->error);
-                }
-                $stmt->bind_param("i", $request_id);
+                $update_query = "UPDATE tbl_prebooking SET status = 'Completed' WHERE prebookingid = ? AND driver_id = ?";
                 break;
-                
+
             case 'emergency':
                 $update_query = "UPDATE tbl_emergency SET status = 'Completed', updated_at = CURRENT_TIMESTAMP WHERE request_id = ? AND driver_id = ?";
-                $stmt = $conn->prepare($update_query);
-                if ($stmt === false) {
-                    throw new Exception("Prepare failed: " . $conn->error);
-                }
-                $stmt->bind_param("ii", $request_id, $driver_id);
                 break;
-                
+
             default:
                 throw new Exception("Invalid request type");
         }
-        
+
+        $stmt = $conn->prepare($update_query);
+        if ($stmt === false) {
+            throw new Exception("Prepare failed: " . $conn->error);
+        }
+
+        // Bind parameters for all cases
+        $stmt->bind_param("ii", $request_id, $driver_id);
+
         if ($stmt->execute()) {
             $success_message = "Request marked as completed successfully!";
         } else {
             throw new Exception("Failed to update request status: " . $stmt->error);
         }
+
         $stmt->close();
     } catch (Exception $e) {
         $error_message = "An error occurred while updating the request: " . $e->getMessage();
@@ -64,33 +58,31 @@ if (isset($_POST['complete_request'])) {
 
 // Fetch driver type
 try {
-    $driver_query = "SELECT d.ambulance_type 
-                    FROM tbl_driver d 
-                    WHERE d.driver_id = ?";
+    $driver_query = "SELECT ambulance_type FROM tbl_driver WHERE driver_id = ?";
     $stmt = $conn->prepare($driver_query);
     if ($stmt === false) {
         throw new Exception("Prepare failed: " . $conn->error);
     }
+
     $stmt->bind_param("i", $driver_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $driver_info = $result->fetch_assoc();
-    
+
     if ($driver_info === null) {
         throw new Exception("Driver information not found");
     }
-    
+
     $is_palliative_driver = ($driver_info['ambulance_type'] === 'palliative');
     $stmt->close();
 } catch (Exception $e) {
-    // $error_message = "Failed to fetch driver information: " . $e->getMessage();
     error_log("Database error: " . $e->getMessage());
     $is_palliative_driver = false;
 }
 
-// Fetch driver's jobs
 try {
     if ($is_palliative_driver) {
+        // Palliative driver gets emergency and palliative requests
         $jobs_query = "(SELECT 
             e.request_id, 
             e.userid,
@@ -113,7 +105,7 @@ try {
             p.userid,
             p.address as pickup_location,
             u.phoneno as contact_phone,
-            NULL as driver_id,
+            p.driver_id,
             p.status,
             p.created_at,
             p.updated_at,
@@ -123,15 +115,10 @@ try {
             u.phoneno as contact_phone
         FROM tbl_palliative p
         LEFT JOIN tbl_user u ON p.userid = u.userid
-        WHERE p.status IN ('Approved', 'Pending', 'Completed'))
+        WHERE p.driver_id = ? AND p.status IN ('Pending', 'Approved', 'Completed'))
         ORDER BY created_at DESC";
-        
-        $stmt = $conn->prepare($jobs_query);
-        if ($stmt === false) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        $stmt->bind_param("i", $driver_id);
     } else {
+        // Regular driver gets emergency and prebooking requests
         $jobs_query = "(SELECT 
             e.request_id,
             e.userid,
@@ -166,24 +153,26 @@ try {
         LEFT JOIN tbl_user u ON p.userid = u.userid
         WHERE p.driver_id = ? AND p.status IN ('Pending', 'Accepted', 'Completed'))
         ORDER BY created_at DESC";
-        
-        $stmt = $conn->prepare($jobs_query);
-        if ($stmt === false) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-        $stmt->bind_param("ii", $driver_id, $driver_id);
     }
-    
+
+    $stmt = $conn->prepare($jobs_query);
+    if ($stmt === false) {
+        throw new Exception("Prepare failed: " . $conn->error);
+    }
+
+    $stmt->bind_param("ii", $driver_id, $driver_id);
     $stmt->execute();
     $jobs = $stmt->get_result();
+
+    // Debugging: Log the number of rows returned
+    error_log("Number of rows fetched: " . $jobs->num_rows);
+
     $stmt->close();
-    
 } catch (Exception $e) {
     $error_message = "Failed to fetch job history: " . $e->getMessage();
     error_log("Database error: " . $e->getMessage());
 }
 ?>
-
 <!-- Rest of the HTML remains the same -->
 <!DOCTYPE html>
 <html lang="en">
@@ -339,18 +328,19 @@ try {
 </head>
 <body>
     <?php include 'header.php'; ?>
-
     <div class="container">
-        <div class="glass-card">
-            <h2 class="mb-4">My Job History</h2>
+    <div class="glass-card position-relative">
+        <a href="driver.php" class="btn btn-success position-absolute" style="top: 30px; right: 30px;">Back</a>
+        <h2 class="mb-4">My Job History</h2>
 
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
-            <?php endif; ?>
+        <?php if ($error_message): ?>
+            <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
+        <?php endif; ?>
 
-            <?php if ($success_message): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-            <?php endif; ?>
+        <?php if ($success_message): ?>
+            <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
+        <?php endif; ?>
+
 
             <?php if ($jobs && $jobs->num_rows > 0): ?>
                 <?php while ($job = $jobs->fetch_assoc()): ?>
@@ -395,7 +385,7 @@ try {
                                 </div>
                             </div>
                         </div>
-                        <?php if ($job['status'] == 'Accepted'): ?>
+                        <?php if ($job['status'] == 'Accepted'||$job['status'] == 'Approvedd'): ?>
                             <form method="POST" style="display: inline;">
                                 <input type="hidden" name="request_id" value="<?php echo $job['request_id']; ?>">
                                 <input type="hidden" name="request_type" value="<?php echo $job['request_type']; ?>">
