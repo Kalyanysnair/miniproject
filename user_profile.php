@@ -158,7 +158,7 @@ if (!$user) {
         }
 
         /* Sidebar Styles */
-        .sidebar {
+        /* .sidebar {
             position: fixed;
             left: 0;
             top: var(--header-height);
@@ -202,11 +202,11 @@ if (!$user) {
         .sidebar-nav i {
             font-size: 18px;
             color: var(--primary-color);
-        }
+        } */
         
         /* Main Content Area */
         .main {
-            margin-left: var(--sidebar-width);
+            /* margin-left: var(--sidebar-width); */
             padding: 20px;
             margin-top: var(--header-height);
         }
@@ -398,7 +398,7 @@ if (!$user) {
     <!-- Header -->
     <?php include 'header.php'; ?>
 
-    <!-- Sidebar Navigation -->
+    <!-- Sidebar Navigation
     <aside class="sidebar">
         <ul class="sidebar-nav">
             <li>
@@ -427,7 +427,7 @@ if (!$user) {
                 </a>
             </li>
         </ul>
-    </aside>
+    </aside> -->
 
     <!-- Main Content -->
     <main class="main">

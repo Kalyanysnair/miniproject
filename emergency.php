@@ -280,28 +280,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </head>
     <body>
 
-    <header id="header" class="header d-flex align-items-center fixed-top">
-        <div class="container-fluid container-xl position-relative d-flex align-items-center">
-            <a href="index.html" class="logo d-flex align-items-center me-auto">
-            <img src="assets/img/SWIFTAID2.png" alt="SWIFTAID Logo" style="height: 70px; margin-right: 10px;">
-                <h1 class="sitename">SWIFTAID</h1>
-            </a>
-            <nav id="navmenu" class="navmenu">
-                <ul>
-                    <li><a href="index.html#hero">Home</a></li>
-                    <li><a href="index.html#about">About</a></li>
-                    <li><a href="index.html#services">Services</a></li>
-                    <li><a href="index.html#ambulanceservice">Ambulance Services</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
-                    <li><a href="login.php">Login</a></li>
-                    <li><a href="signup.php">Sign Up</a></li>
-                </ul>
-            </nav>
-            <a class="btn-getstarted" href="emergency_form.php">Emergency Booking</a>
-        </div>
-    </header>
-    </head>
-    <body>
+    <?php include 'header.php'; ?>
+    
     <?php
     // Initialize error variables
     $nameErr = $emailErr = $dobErr = $mobileErr = $genderErr = $passwordErr = "";
@@ -324,7 +304,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $mobileErr = "Mobile number is required";
         } else {
             $mobile = test_input($_POST["contact_phone"]);
-            if (!preg_match("/^[0-9]{10}$/", $mobile)) {
+            if (!preg_match("/^[6-9]\d{9}$/", $mobile)) {
                 $mobileErr = "Invalid mobile number, must be 10 digits";
             }
         }
@@ -410,16 +390,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     
                 </div>
                 <!-- Date (Auto-filled with Current Date) -->
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <b>Date</b>
                     <input type="date" name="date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
                 </div>
 
                 <!-- Time (Auto-filled with Current Time) -->
-                <div class="col-md-6">
+                <!-- <div class="col-md-6">
                     <b>Time</b>
                     <input type="time" name="time" class="form-control" value="<?php echo date('H:i'); ?>" required>
-                </div>
+                </div> -->
 
                 <!-- Submit Button -->
                 <div class="col-md-12 text-center">

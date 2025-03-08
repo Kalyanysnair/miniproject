@@ -33,6 +33,7 @@ $review_count = $result->num_rows;
     <!-- External Stylesheets -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/main.css" rel="stylesheet">
 
     <style>
         body {
@@ -103,6 +104,7 @@ $review_count = $result->num_rows;
     </style>
 </head>
 <body>
+<?php include 'header.php'; ?>
 
     <div class="admin-container">
         <h2>All User Reviews</h2>

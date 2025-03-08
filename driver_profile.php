@@ -243,7 +243,7 @@ if (!$driver) {
         
         /* Main Content Area */
         .main {
-            margin-left: var(--sidebar-width);
+            /* margin-left: var(--sidebar-width); */
             padding: 20px;
             margin-top: var(--header-height);
         }
@@ -469,37 +469,18 @@ if (!$driver) {
 </head>
 <body>
     <!-- Header -->
-    <header id="header" class="header d-flex align-items-center fixed-top">
-        <div class="container-fluid container-xl position-relative d-flex align-items-center">
-            <a href="index.html" class="logo d-flex align-items-center me-auto">
-                <img src="assets/img/SWIFTAID2.png" alt="SWIFTAID Logo" style="height: 70px; margin-right: 10px;">
-                <h1 class="sitename">SWIFTAID</h1>
-            </a>
-            <nav id="navmenu" class="navmenu">
-                <ul>
-                    <li><a href="index.html#hero">Home</a></li>
-                    <li><a href="index.html#about">About</a></li>
-                    <li><a href="index.html#services">Services</a></li>
-                    <li><a href="index.html#ambulanceservice">Ambulance Services</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
-                    <li><a href="login.php">Login</a></li>
-                    <li><a href="signup.php">Sign Up</a></li>
-                </ul>
-            </nav>
-            <a class="btn-getstarted" href="emergency.php">Emergency Booking</a>
-        </div>
-    </header>
+    <?php include 'header.php'; ?>
 
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <!-- <aside class="sidebar"> -->
    
 
     <!-- Sidebar Navigation -->
-    <ul class="sidebar-nav">
+    <!-- <ul class="sidebar-nav">
         <li>
             <a href="driver.php">
-                <!-- <i class="bi bi-grid"></i> -->
-                <span><i class="bi bi-person-circle"></i> <!-- User icon -->
+                <i class="bi bi-grid"></i
+                <span><i class="bi bi-person-circle"></i> 
                 <span><?php echo htmlspecialchars($_SESSION['username']); ?></span></span>
             </a>
         </li>
@@ -528,7 +509,7 @@ if (!$driver) {
             </a>
         </li>
     </ul>
-</aside>
+</aside> -->
 
     <!-- Main Content -->
     <main class="main">
@@ -661,10 +642,13 @@ if (!$driver) {
                             <div class="profile-label">Ambulance Type:</div>
                             <div class="profile-value">
                                 <select name="ambulance_type" class="form-control" required>
-                                    <option value="Basic" <?php echo $driver['ambulance_type'] === 'Basic' ? 'selected' : ''; ?>>Basic</option>
-                                    <option value="Advanced" <?php echo $driver['ambulance_type'] === 'Advanced' ? 'selected' : ''; ?>>Advanced</option>
-                                    <option value="Critical Care" <?php echo $driver['ambulance_type'] === 'Critical Care' ? 'selected' : ''; ?>>Critical Care</option>
-                                    <option value="Patient Transport" <?php echo $driver['ambulance_type'] === 'Patient Transport' ? 'selected' : ''; ?>>Patient Transport</option>
+                                    <option value="Basic Ambulance Service" <?php echo $driver['ambulance_type'] === 'Basic Ambulance Service' ? 'selected' : ''; ?>>Basic Ambulance Service</option>
+                                    <option value="Advanced Life Support" <?php echo $driver['ambulance_type'] === 'Advanced Life Support' ? 'selected' : ''; ?>>Advanced Life Support</option>
+                                    <option value="Critical Care Ambulance" <?php echo $driver['ambulance_type'] === 'Critical Care Ambulance' ? 'selected' : ''; ?>>Critical Care Ambulance</option>
+                                    <option value="Neonatal Ambulance" <?php echo $driver['ambulance_type'] === 'Neonatal Ambulance' ? 'selected' : ''; ?>>Neonatal Ambulance</option>
+                                    <option value="Bariatric Ambulance" <?php echo $driver['ambulance_type'] === 'Bariatric Ambulance' ? 'selected' : ''; ?>>Bariatric Ambulance</option>
+                                    <option value="Mortuary Transport" <?php echo $driver['ambulance_type'] === 'Mortuary Transport' ? 'selected' : ''; ?>>Mortuary Transport</option>
+                                    <option value="Palliative" <?php echo $driver['ambulance_type'] === 'Palliative' ? 'selected' : ''; ?>>Palliative</option>
                                 </select>
                             </div>
                         </div>

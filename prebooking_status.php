@@ -240,7 +240,7 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <th>Booking ID</th>
+                            <!-- <th>Booking ID</th> -->
                             <th>Pickup Location</th>
                             <th>Destination</th>
                             <th>Service Type</th>
@@ -254,7 +254,7 @@ try {
                     <tbody>
                         <?php while ($booking = $prebookings->fetch_assoc()): ?>
                             <tr>
-                                <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td>
+                                <!-- <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['destination']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['service_type']); ?></td>

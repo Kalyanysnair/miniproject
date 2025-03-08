@@ -57,7 +57,7 @@ try {
 
     // Debug: Check if data is fetched
     if ($emergency_bookings->num_rows === 0) {
-        $error_message = "No emergency bookings found for the user.";
+        // $error_message = "No emergency bookings found for the user.";
         // echo "Debug: No rows found for name: " . $patient_name . " and phone: " . $contact_phone . "<br>"; // Debug: Print if no rows are found
     } else {
         // echo "Debug: Rows found: " . $emergency_bookings->num_rows . "<br>"; // Debug: Print the number of rows found
@@ -134,7 +134,7 @@ try {
             display: flex;
         }
 
-        .sidebar {
+        /* .sidebar {
             width: 250px;
             background: rgba(206, 205, 205, 0.8);
             color: white;
@@ -167,10 +167,10 @@ try {
 
         .sidebar ul li a:hover {
             color: #2E8B57;
-        }
+        } */
 
         .container {
-            margin-left: 250px;
+            /* margin-left: 250px; */
             padding: 20px;
             flex: 1;
         }
@@ -294,7 +294,7 @@ try {
 <body>
     <!-- Sidebar -->
     
-    <div class="sidebar">
+    <!-- <div class="sidebar">
 <div class="user-info"><a href="user1.php">
     <i class="fas fa-user-circle"></i>
     <?php echo $_SESSION['username']; ?></a>
@@ -306,7 +306,7 @@ try {
         <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
         <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>
-</div>
+</div> -->
 
     <!-- Main Content -->
     <div class="container">
@@ -325,9 +325,9 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <th>Booking ID</th>
-                            <th>Patient Name</th>
-                            <th>Contact</th>
+                            
+                            <!-- <th>Patient Name</th>
+                            <th>Contact</th> -->
                             <th>Location</th>
                             <th>Ambulance Type</th>
                             <th>Status</th>
@@ -338,9 +338,9 @@ try {
                     <tbody>
                         <?php while ($booking = $emergency_bookings->fetch_assoc()): ?>
                             <tr>
-                                <td>#<?php echo htmlspecialchars($booking['request_id']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['patient_name']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['contact_phone']); ?></td>
+                                
+                                <!-- <td><?php echo htmlspecialchars($booking['patient_name']); ?></td>
+                                <td><?php echo htmlspecialchars($booking['contact_phone']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['ambulance_type']); ?></td>
                                 <td>
@@ -372,7 +372,7 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <th>Booking ID</th>
+                            <!-- <th>Booking ID</th> -->
                             <th>Pickup Location</th>
                             <th>Destination</th>
                             <th>Service Type</th>
@@ -380,12 +380,13 @@ try {
                             <th>Ambulance Type</th>
                             <th>Status</th>
                             <th>Date</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php while ($booking = $prebookings->fetch_assoc()): ?>
                             <tr>
-                                <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td>
+                                <!-- <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['destination']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['service_type']); ?></td>
@@ -397,6 +398,13 @@ try {
                                     </span>
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
+                                <td>
+                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>)">
+                                            Pay Now
+                                        </button>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     </tbody>
@@ -413,17 +421,18 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <th>Booking ID</th>
+                            <!-- <th>Booking ID</th> -->
                             <th>Address</th>
                             <th>Medical Condition</th>
                             <th>Status</th>
                             <th>Date</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php while ($booking = $palliative->fetch_assoc()): ?>
                             <tr>
-                                <td>#<?php echo htmlspecialchars($booking['palliativeid']); ?></td>
+                                <!-- <td>#<?php echo htmlspecialchars($booking['palliativeid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['address']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['medical_condition']); ?></td>
                                 <td>
@@ -432,6 +441,13 @@ try {
                                     </span>
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
+                                <td>
+                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>)">
+                                            Pay Now
+                                        </button>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endwhile; ?>
                     </tbody>

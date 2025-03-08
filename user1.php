@@ -345,6 +345,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     <nav class="sidebar-menu">
         <ul class="sidebar-nav">
             <li>
+            
                 <a href="user_profile.php">
                 <span class="user-avatar">👤</span> <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?>
                 </a></li>
@@ -368,7 +369,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
         <main class="container">
             <div class="services-grid">
                 <!-- Emergency Care Box -->
-                 <a href="emergency_status.php">
+                 <a href="emergency_login.php">
                 <div class="service-box" onclick="navigateTo('emergency')">
                     <div class="icon">🚑</div>
                     <h2>Urgent Care Services</h2>
