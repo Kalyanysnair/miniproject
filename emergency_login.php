@@ -301,6 +301,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <ul class="sidebar-nav">
         
         <li><a href="user_profile.php"><i class="fas fa-user"></i>  Profile</a></li>
+        <li><a href="emergency_status.php"><i class="fas fa-list"></i> My Bookings</a></li>
         <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
         <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>

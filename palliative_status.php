@@ -59,17 +59,17 @@ try {
             padding: 0;
             display: flex;
         }
-
+/* 
         .sidebar {
             width: 250px;
             background: rgba(206, 205, 205, 0.8);
             color: white;
             padding: 20px;
-            height: calc(100vh - 80px); /* Full height minus header height */
+            height: calc(100vh - 80px); 
             position: fixed;
-            top: 80px; /* Same as header height */
+            top: 80px; 
             left: 0;
-            overflow-y: auto; /* Add scrollbar if content overflows */
+            overflow-y: auto; 
         }
 
         .sidebar h2 {
@@ -101,10 +101,10 @@ try {
         .sidebar ul li a i {
             margin-right: 10px;
             font-size: 18px;
-        }
+        } */
 
         .container {
-            margin-left: 250px;
+            /* margin-left: 250px; */
             padding: 20px;
             flex: 1;
         }
@@ -207,7 +207,7 @@ try {
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar">
+    <!-- <div class="sidebar">
         <div class="user-info"><a href="user1.php">
             <i class="fas fa-user-circle"></i>
             <?php echo $_SESSION['username']; ?></a>
@@ -219,7 +219,7 @@ try {
             <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
             <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
-    </div>
+    </div> -->
 
     <!-- Main Content -->
     <div class="container">
