@@ -55,7 +55,7 @@ try {
 
     // Debug: Check if data is fetched
     if ($emergency_bookings->num_rows === 0) {
-        $error_message = "No emergency bookings found for the user.";
+        // $error_message = "No emergency bookings found for the user.";
     }
 
 } catch (Exception $e) {
@@ -84,7 +84,7 @@ try {
             display: flex;
         }
 
-        .sidebar {
+        /* .sidebar {
             width: 250px;
             background: rgba(206, 205, 205, 0.8);
             color: white;
@@ -117,10 +117,10 @@ try {
 
         .sidebar ul li a:hover {
             color: #2E8B57;
-        }
+        } */
 
         .container {
-            margin-left: 250px;
+            /* margin-left: 250px; */
             padding: 20px;
             flex: 1;
         }
@@ -221,7 +221,7 @@ try {
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar">
+    <!-- <div class="sidebar">
         <div class="user-info"><a href="user1.php">
             <i class="fas fa-user-circle"></i>
             <?php echo $_SESSION['username']; ?></a>
@@ -233,7 +233,7 @@ try {
             <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
             <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
-    </div>
+    </div> -->
 
     <!-- Main Content -->
     <div class="container">

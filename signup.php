@@ -1,4 +1,3 @@
-
 <?php
 require_once "connect.php";
 require 'vendor/autoload.php'; // Composer autoload for PHPMailer
@@ -181,6 +180,109 @@ if (isset($_POST['submit'])) {
     }
     exit(); // Ensure no further output
 }
+
+// Handle Google Sign-In
+if (isset($_POST['google_signin'])) {
+    header('Content-Type: application/json');
+    
+    try {
+        // Get data from Google sign-in
+        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+        $username = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
+        $google_id = filter_var($_POST['google_id'], FILTER_SANITIZE_STRING);
+        
+        // Check if user already exists with this email
+        $stmt = $conn->prepare("SELECT id FROM tbl_user WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            // User exists, log them in
+            $user = $result->fetch_assoc();
+            $_SESSION['user_id'] = $user['id'];
+            
+            echo json_encode([
+                'status' => 'success', 
+                'message' => 'Logged in successfully',
+                'is_new_user' => false
+            ]);
+        } else {
+            // New user, register them
+            // Generate a random password for Google users
+            $random_password = bin2hex(random_bytes(16)); // 32 character random password
+            $hashed_password = password_hash($random_password, PASSWORD_BCRYPT);
+            
+            $stmt = $conn->prepare("INSERT INTO tbl_user (username, password, email, google_id) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssss", $username, $hashed_password, $email, $google_id);
+            
+            if ($stmt->execute()) {
+                $user_id = $stmt->insert_id;
+                $_SESSION['user_id'] = $user_id;
+                
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Account created successfully',
+                    'is_new_user' => true
+                ]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Error creating account: ' . $stmt->error]);
+            }
+        }
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Error: ' . $e->getMessage()]);
+    }
+    exit();
+}
+
+// Handle Regular Sign-In
+if (isset($_POST['signin'])) {
+    header('Content-Type: application/json');
+    
+    try {
+        // Get sign-in credentials
+        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+        $password = $_POST['password'];
+        
+        // Check if user exists
+        $stmt = $conn->prepare("SELECT id, username, password FROM tbl_user WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            
+            // Verify password
+            if (password_verify($password, $user['password'])) {
+                // Password is correct, create session
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Sign in successful'
+                ]);
+            } else {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Invalid email or password'
+                ]);
+            }
+        } else {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'User not found. Please register first.'
+            ]);
+        }
+    } catch (Exception $e) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Error: ' . $e->getMessage()
+        ]);
+    }
+    exit();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -193,6 +295,10 @@ if (isset($_POST['submit'])) {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <!-- Google Sign-In API -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="main.js"  defer type="module"></script>
+    
 
   <!-- Favicons -->
   <link href="assets/img/favicon.png" rel="icon">
@@ -212,7 +318,30 @@ if (isset($_POST['submit'])) {
 
   <!-- Main CSS File -->
   <link href="assets/css/main.css" rel="stylesheet">
-
+  <style>
+        #googleSignInBtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: white;
+        color: #555;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px 15px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease-in-out;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        width: 250px;
+        margin: 10px auto;
+    }
+    .google-logo {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+    }
+  </style>
 </head>
 <body>
 <header id="header" class="header d-flex align-items-center fixed-top">
@@ -272,11 +401,13 @@ if (isset($_POST['submit'])) {
                                     <span class="error-message" id="emailError"></span>
                                 </div>
                                 <div class="col-12">
-                                <button class="btn w-100" type="submit" name="submit" style="background-color: rgba(13, 166, 23, 0.95); border: none;">
-                                Create Account</button>
+                                    <button class="btn w-100" type="submit" name="submit" style="background-color: rgba(13, 166, 23, 0.95); border: none;">
+                                    Create Account</button>
                                 </div>
+                                
+                                   
                                 <div class="col-12">
-                                    <p style="color:brown; text-align:center">Already have an account? <a href="login.php" style="color:brown">Log in</a></p>
+                                    <p style="color:brown; text-align:center"><center>Already have an account? <a href="login.php" style="color:brown">Log in</a></center></p>
                                 </div>
                             </form>
                         </div>
@@ -540,6 +671,8 @@ $(document).ready(function () {
         });
     }
 });
+
+
 </script>
 </body>
 </html>

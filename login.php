@@ -1,16 +1,96 @@
+
 <?php
 session_start();
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+// Database connection
+function connectDB() {
+    $conn = new mysqli("localhost", "root", "", "groovin");
+    if ($conn->connect_error) {
+        die("Database Connection Failed: " . $conn->connect_error);
+    }
+    return $conn;
+}
+
+// Handle Google Sign-In
+if (isset($_POST['google_signin'])) {
+    header('Content-Type: application/json');
+
+    try {
+        // Get data from Google sign-in
+        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+        $username = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
+        $google_id = filter_var($_POST['google_id'], FILTER_SANITIZE_STRING);
+
+        $conn = connectDB();
+
+        // Check if user already exists
+        $stmt = $conn->prepare("SELECT userid, username, role, status FROM tbl_user WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            // User exists, log them in
+            $user = $result->fetch_assoc();
+
+            // Check account status
+            if (strtolower($user['status']) === 'inactive') {
+                echo json_encode(['status' => 'error', 'message' => 'Your account is inactive. Please contact the administrator.']);
+                exit();
+            }
+
+            // Set session variables
+            $_SESSION['user_id'] = $user['userid'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'] ?? 'user'; // Default to 'user' if role is not set
+
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Logged in successfully',
+                'is_new_user' => false,
+                'redirect' => 'user1.php'
+            ]);
+        } else {
+            // New user, register them
+            $random_password = bin2hex(random_bytes(16)); // 32 character random password
+            $hashed_password = password_hash($random_password, PASSWORD_BCRYPT);
+            $default_role = 'user';
+            $status = 'active';
+
+            $stmt = $conn->prepare("INSERT INTO tbl_user (username, password, email, google_id, role, status) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssss", $username, $hashed_password, $email, $google_id, $default_role, $status);
+
+            if ($stmt->execute()) {
+                $user_id = $stmt->insert_id;
+                $_SESSION['user_id'] = $user_id;
+                $_SESSION['username'] = $username;
+                $_SESSION['role'] = $default_role;
+
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Account created successfully',
+                    'is_new_user' => true,
+                    'redirect' => 'user1.php'
+                ]);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Error creating account: ' . $stmt->error]);
+            }
+        }
+
+        $stmt->close();
+        $conn->close();
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Error: ' . $e->getMessage()]);
+    }
+    exit();
+}
+
+// Handle Regular Login
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['google_signin'])) {
     $username = trim($_POST['username']);
     $password = trim($_POST['password']);
 
-    // Database connection
-    $conn = new mysqli("localhost", "root", "", "groovin");
-
-    if ($conn->connect_error) {
-        die("Connection failed: " . $conn->connect_error);
-    }
+    $conn = connectDB();
 
     // Fetch user details from tbl_user
     $stmt = $conn->prepare("SELECT userid, username, role, password, status FROM tbl_user WHERE username = ?");
@@ -21,9 +101,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows > 0) {
         $user = $result->fetch_assoc();
 
+        // Check if user is inactive
         if (strtolower($user['status']) === 'inactive') {
             $error = "Your account is inactive. Please contact the administrator.";
         } elseif (password_verify($password, $user['password'])) {
+            // Set session variables
             $_SESSION['user_id'] = $user['userid'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
@@ -53,6 +135,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,8 +145,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
 
     <!-- Favicons -->
-    <link href="assets/img/favicon.png" rel="icon">
-    <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+    <!-- <link href="assets/img/favicon.png" rel="icon">
+    <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon"> -->
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com" rel="preconnect">
@@ -76,9 +159,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link href="assets/vendor/aos/aos.css" rel="stylesheet">
     <link href="assets/vendor/glightbox/css/glightbox.min.css" rel="stylesheet">
     <link href="assets/vendor/swiper/swiper-bundle.min.css" rel="stylesheet">
-
+    
     <!-- Main CSS File -->
     <link href="assets/css/main.css" rel="stylesheet">
+    <!-- <script type="module" src="assets/js/main.js"></script> -->
+    <script type="module" src="main.js"></script>
+
+    <script src="main.js" defer></script>
+
+
 
     <style>
         body {
@@ -162,7 +251,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 24px;
             color: rgb(247, 253, 247);
         }
-
+        #googleSignInBtn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            color: #555;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            width: 250px;
+            margin: 10px auto;
+        }
+        .google-logo {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
         .form-group {
             margin-bottom: 20px;
             text-align: left;
@@ -277,13 +387,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                             <button type="submit" class="login-btn">Login</button>
                         </form>
-                        <a href="signup.php" class="signup-link" >Don't have an account? Sign up</a>
-                        <a href="forgetpassword.php" class="signup-link" >Forgot Password?</a>
+                      
+                            <!-- <button id="googleSignInBtn">
+                                 <img src="assets/img/google-logo.png" alt="Google Logo" class="google-logo"> 
+                                Sign in with Google
+                            </button>-->
+                            <!-- <button id="googleSignInBtn"> -->
+                                <!-- <img src="assets/img/google-logo.png" alt="Google Logo" class="google-logo">
+                                Sign in with Google
+                            </button> -->
+                            <button id="googleSignInBtn">Sign in with Google</button>
+
+
+                         
+                       
+                        <a href="signup.php" class="signup-link">Don't have an account? Sign up</a>
+                        <a href="forgetpassword.php" class="signup-link">Forgot Password?</a>
+                        </div> 
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
+
+
+
+
 </body>
 </html>
