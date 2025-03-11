@@ -13,12 +13,14 @@ $create_table_query = "CREATE TABLE IF NOT EXISTS tbl_palliative (
     status ENUM('Pending', 'Approved', 'Rejected', 'Completed') NOT NULL DEFAULT 'Pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (userid) REFERENCES tbl_user(userid),
     ambulance_type ENUM('palliative') NOT NULL DEFAULT 'palliative',
+    driver_id INT(6) UNSIGNED DEFAULT NULL,
+    FOREIGN KEY (userid) REFERENCES tbl_user(userid),
+    FOREIGN KEY (driver_id) REFERENCES tbl_user(userid),
     INDEX idx_status (status),
     INDEX idx_userid (userid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-#setting of ambulance type is missiing
+
 if (!$conn->query($create_table_query)) {
     die("Error creating table: " . $conn->error);
 }
@@ -42,38 +44,51 @@ if ($stmt = $conn->prepare($query)) {
     die("Error preparing query: " . $conn->error);
 }
 
+// Function to assign an available driver
+function getAvailableDriverId($conn) {
+    $query = "SELECT userid FROM tbl_user WHERE role = 'driver' LIMIT 1";
+    $stmt = $conn->prepare($query);
+    $stmt->execute();
+    $stmt->bind_result($driver_id);
+    $stmt->fetch();
+    $stmt->close();
+    
+    return $driver_id ?: NULL; // Return NULL if no driver is available
+}
+
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $comments = !empty($_POST['comments']) ? $_POST['comments'] : null;
     $requirements = !empty($_POST['requirements']) ? $_POST['requirements'] : null;
     $address = $_POST['address'];
     $medical_condition = $_POST['medical_condition'];
-    
+    $ambulance_type = 'palliative'; // Default type
+    $driver_id = getAvailableDriverId($conn); // Assign driver
+
     $insert_query = "INSERT INTO tbl_palliative (
         userid, comments, additional_requirements, address, 
-        medical_condition, status
-    ) VALUES (?, ?, ?, ?, ?, 'Pending')";
-    
+        medical_condition, status, ambulance_type, driver_id
+    ) VALUES (?, ?, ?, ?, ?, 'Pending', ?, ?)";
+
     $stmt = $conn->prepare($insert_query);
-    $stmt->bind_param("issss", 
+    $stmt->bind_param("isssssi", 
         $user_id, $comments, $requirements, $address, 
-        $medical_condition
+        $medical_condition, $ambulance_type, $driver_id
     );
-    
+
     if ($stmt->execute()) {
         $_SESSION['message'] = "Palliative care request submitted successfully!";
-        // $_SESSION['message_type'] = "success";
     } else {
         $_SESSION['message'] = "Error submitting request. Please try again.";
-        // $_SESSION['message_type'] = "error";
     }
     $stmt->close();
 
     // Refresh page to display message
-    // header("Location: " . $_SERVER['PHP_SELF']);
-    // exit();
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

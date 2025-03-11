@@ -12,77 +12,88 @@ $driver_id = $_SESSION['user_id'];
 $error_message = "";
 $success_message = "";
 
-// Handle completion request
+// Check database connection
+if (!$conn) {
+    die("Database connection failed: " . mysqli_connect_error());
+}
+
+// Fetch role from `tbl_user` instead of `tbl_driver`
+$is_palliative_driver = false;
+$check_driver_query = "SELECT role FROM tbl_user WHERE userid = ?";
+$stmt = $conn->prepare($check_driver_query);
+
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
+
+$stmt->bind_param("i", $driver_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($row = $result->fetch_assoc()) {
+    $is_palliative_driver = ($row['role'] === 'palliative');
+}
+$stmt->close();
+
+// Handle request completion
 if (isset($_POST['complete_request'])) {
-    $request_id = $_POST['request_id'];
-    $request_type = $_POST['request_type'];
-    
-    try {
-        switch ($request_type) {
-            case 'palliative':
-                $update_query = "UPDATE tbl_palliative SET status = 'Completed', updated_at = CURRENT_TIMESTAMP WHERE palliativeid = ? AND driver_id = ?";
-                break;
+    $request_type = isset($_POST['request_type']) ? trim($_POST['request_type']) : '';
+    $request_id = isset($_POST['request_id']) ? intval($_POST['request_id']) : 0;
+    $amount = isset($_POST['amount']) ? floatval($_POST['amount']) : 0;
 
-            case 'prebooking':
-                $update_query = "UPDATE tbl_prebooking SET status = 'Completed' WHERE prebookingid = ? AND driver_id = ?";
-                break;
+    if ($request_id > 0 && !empty($request_type)) {
+        try {
+            // Select the correct table based on request type
+            switch ($request_type) {
+                case 'palliative':
+                    $update_query = "UPDATE tbl_palliative 
+                                     SET status = 'Completed', updated_at = CURRENT_TIMESTAMP, amount = ? 
+                                     WHERE palliativeid = ? AND driver_id = ?";
+                    break;
+                case 'prebooking':
+                    $update_query = "UPDATE tbl_prebooking 
+                                     SET status = 'Completed', amount = ? 
+                                     WHERE prebookingid = ? AND driver_id = ?";
+                    break;
+                case 'emergency':
+                    $update_query = "UPDATE tbl_emergency 
+                                     SET status = 'Completed', updated_at = CURRENT_TIMESTAMP, amount = ? 
+                                     WHERE request_id = ? AND driver_id = ?";
+                    break;
+                default:
+                    throw new Exception("Invalid request type: " . htmlspecialchars($request_type));
+            }
 
-            case 'emergency':
-                $update_query = "UPDATE tbl_emergency SET status = 'Completed', updated_at = CURRENT_TIMESTAMP WHERE request_id = ? AND driver_id = ?";
-                break;
+            $stmt = $conn->prepare($update_query);
+            if ($stmt === false) {
+                throw new Exception("Prepare failed: " . $conn->error);
+            }
 
-            default:
-                throw new Exception("Invalid request type");
+            $stmt->bind_param("dii", $amount, $request_id, $driver_id);
+
+            if ($stmt->execute()) {
+                if ($stmt->affected_rows > 0) {
+                    $success_message = "Request marked as completed successfully!";
+                } else {
+                    $error_message = "No matching record found. Please check the request and driver IDs.";
+                }
+            } else {
+                throw new Exception("Failed to update request status: " . $stmt->error);
+            }
+
+            $stmt->close();
+        } catch (Exception $e) {
+            $error_message = "An error occurred while updating the request: " . $e->getMessage();
+            error_log("Database error: " . $e->getMessage());
         }
-
-        $stmt = $conn->prepare($update_query);
-        if ($stmt === false) {
-            throw new Exception("Prepare failed: " . $conn->error);
-        }
-
-        // Bind parameters for all cases
-        $stmt->bind_param("ii", $request_id, $driver_id);
-
-        if ($stmt->execute()) {
-            $success_message = "Request marked as completed successfully!";
-        } else {
-            throw new Exception("Failed to update request status: " . $stmt->error);
-        }
-
-        $stmt->close();
-    } catch (Exception $e) {
-        $error_message = "An error occurred while updating the request: " . $e->getMessage();
-        error_log("Database error: " . $e->getMessage());
+    } else {
+        $error_message = "Invalid request data. Please try again.";
     }
 }
 
-// Fetch driver type
-try {
-    $driver_query = "SELECT ambulance_type FROM tbl_driver WHERE driver_id = ?";
-    $stmt = $conn->prepare($driver_query);
-    if ($stmt === false) {
-        throw new Exception("Prepare failed: " . $conn->error);
-    }
-
-    $stmt->bind_param("i", $driver_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $driver_info = $result->fetch_assoc();
-
-    if ($driver_info === null) {
-        throw new Exception("Driver information not found");
-    }
-
-    $is_palliative_driver = ($driver_info['ambulance_type'] === 'palliative');
-    $stmt->close();
-} catch (Exception $e) {
-    error_log("Database error: " . $e->getMessage());
-    $is_palliative_driver = false;
-}
-
+// Fetch jobs for the driver
 try {
     if ($is_palliative_driver) {
-        // Palliative driver gets emergency and palliative requests
         $jobs_query = "(SELECT 
             e.request_id, 
             e.userid,
@@ -93,6 +104,8 @@ try {
             e.created_at,
             e.updated_at,
             e.patient_name,
+            e.amount,
+            e.payment_status,
             'emergency' as request_type,
             u.username as requester_name,
             u.phoneno as contact_phone
@@ -110,6 +123,8 @@ try {
             p.created_at,
             p.updated_at,
             u.username as patient_name,
+            p.amount,
+            p.payment_status,
             'palliative' as request_type,
             u.username as requester_name,
             u.phoneno as contact_phone
@@ -118,7 +133,6 @@ try {
         WHERE p.driver_id = ? AND p.status IN ('Pending', 'Approved', 'Completed'))
         ORDER BY created_at DESC";
     } else {
-        // Regular driver gets emergency and prebooking requests
         $jobs_query = "(SELECT 
             e.request_id,
             e.userid,
@@ -129,6 +143,7 @@ try {
             e.created_at,
             e.updated_at,
             e.patient_name,
+            e.amount,
             'emergency' as request_type,
             u.username as requester_name,
             u.phoneno as contact_phone
@@ -146,6 +161,7 @@ try {
             p.created_at,
             p.created_at as updated_at,
             u.username as patient_name,
+            p.amount,
             'prebooking' as request_type,
             u.username as requester_name,
             u.phoneno as contact_phone
@@ -172,7 +188,10 @@ try {
     $error_message = "Failed to fetch job history: " . $e->getMessage();
     error_log("Database error: " . $e->getMessage());
 }
+
 ?>
+
+
 <!-- Rest of the HTML remains the same -->
 <!DOCTYPE html>
 <html lang="en">
@@ -324,6 +343,93 @@ try {
                 padding-top: 80px;
             }
         }
+        .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    background-color: #fff;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 500px;
+    animation: modalopen 0.4s;
+}
+
+@keyframes modalopen {
+    from {opacity: 0; transform: translateY(-60px);}
+    to {opacity: 1; transform: translateY(0);}
+}
+
+.modal-title {
+    margin-top: 0;
+    color: #333;
+}
+
+.close-modal {
+    position: absolute;
+    right: 20px;
+    top: 10px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #aaa;
+}
+
+.close-modal:hover {
+    color: #333;
+}
+
+.amount-field {
+    width: 100%;
+    padding: 10px;
+    margin: 15px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.submit-amount {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100%;
+}
+
+.submit-amount:hover {
+    background: #218838;
+}
+.job-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+.amount-display {
+    font-weight: bold;
+    color: #28a745;
+}
+.status-Pending { background: #fff3cd; color: #856404; }
+.status-Paid { background: #d4edda; color: #155724; }
+@media (max-width: 768px) {
+    .modal-content {
+        width: 90%;
+        margin: 30% auto;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -367,10 +473,6 @@ try {
                                 <div class="detail-value"><?php echo htmlspecialchars($job['pickup_location']); ?></div>
                             </div>
                             <div class="detail-item">
-                                <div class="detail-label">Contact</div>
-                                <div class="detail-value"><?php echo htmlspecialchars($job['contact_phone']); ?></div>
-                            </div>
-                            <div class="detail-item">
                                 <div class="detail-label">Status</div>
                                 <div class="detail-value">
                                     <span class="status-badge status-<?php echo htmlspecialchars($job['status']); ?>">
@@ -384,23 +486,70 @@ try {
                                     <?php echo date('d M Y, h:i A', strtotime($job['created_at'])); ?>
                                 </div>
                             </div>
-                        </div>
-                        <?php if ($job['status'] == 'Accepted'||$job['status'] == 'Approvedd'): ?>
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="request_id" value="<?php echo $job['request_id']; ?>">
-                                <input type="hidden" name="request_type" value="<?php echo $job['request_type']; ?>">
-                                <button type="submit" name="complete_request" class="complete-btn">
-                                    Mark as Completed
-                                </button>
-                            </form>
-                        <?php endif; ?>
-                    </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Contact</div>
+                                <div class="detail-value"><?php echo htmlspecialchars($job['contact_phone']); ?></div>
+                            </div>
+                            <div class="detail-item">
+    <div class="detail-label">Amount</div>
+    <div class="detail-value">
+        <?php echo '₹' . number_format($job['amount'], 2); ?>
+    </div>
+</div>
+
+                            <div class="detail-item">
+            <div class="detail-label">Payment Status</div>
+            <div class="detail-value">
+                <span class="status-badge status-<?php echo htmlspecialchars(isset($job['payment_status']) ? $job['payment_status'] : 'Pending'); ?>">
+                    <?php echo htmlspecialchars(isset($job['payment_status']) ? $job['payment_status'] : 'Pending'); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+                            
+                          
+                            
+                        <!-- </div> -->
+                     
+      
+    <?php if ($job['status'] == 'Accepted' || $job['status'] == 'Approved'): ?>
+        <button type="button" 
+            class="complete-btn open-modal" 
+            data-requestid="<?php echo $job['request_id']; ?>" 
+            data-requesttype="<?php echo $job['request_type']; ?>">
+            Mark as Completed
+        </button>
+    <?php endif; ?>
+</div>
+
+
+   
+
+
+                    
                 <?php endwhile; ?>
             <?php else: ?>
                 <p>No job history found.</p>
             <?php endif; ?>
         </div>
     </div>
+     
+    <div id="amountModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3 class="modal-title">Enter Service Amount</h3>
+        <form method="POST" id="completeForm">
+            <input type="hidden" name="request_id" id="modal_request_id">
+            <input type="hidden" name="request_type" id="modal_request_type">
+            <div>
+                <input type="number" name="amount" id="service_amount" class="amount-field" placeholder="Enter amount (₹)" required min="1" step="0.01">
+            </div>
+            <button type="submit" name="complete_request" class="submit-amount">
+                Complete Service
+            </button>
+        </form>
+    </div>
+</div>
 
     <script>
         // Optional: Add confirmation before marking as complete
@@ -410,5 +559,54 @@ try {
             };
         });
     </script>
+    <script>
+    // Get the modal
+    var modal = document.getElementById("amountModal");
+    
+    // Get the button that opens the modal
+    var btns = document.getElementsByClassName("open-modal");
+    
+    // Get the <span> element that closes the modal
+    var span = document.getElementsByClassName("close-modal")[0];
+    
+    // Add click event to all "Mark as Completed" buttons
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].onclick = function() {
+            var requestId = this.getAttribute("data-requestid");
+            var requestType = this.getAttribute("data-requesttype");
+            
+            document.getElementById("modal_request_id").value = requestId;
+            document.getElementById("modal_request_type").value = requestType;
+            
+            modal.style.display = "block";
+        }
+    }
+    
+    // When the user clicks on <span> (x), close the modal
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
+    
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+    
+ // Form validation
+document.getElementById("completeForm").onsubmit = function(e) {
+    var amount = document.getElementById("service_amount").value;
+    
+    if (amount <= 0 || amount === "") {
+        alert("Please enter a valid amount");
+        e.preventDefault();
+        return false;
+    }
+    
+    console.log("Submitting form with amount: " + amount); // Debug
+    return confirm('Are you sure you want to complete this service with an amount of ₹' + amount + '?');
+};
+</script>
 </body>
 </html>

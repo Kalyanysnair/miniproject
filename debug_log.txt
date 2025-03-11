@@ -327,3 +327,32 @@ Array
 === Success === 2025-03-04 19:36:04 ===
 Insert successful. Request ID: 47
 
+=== POST Data === 2025-03-11 18:23:28 ===
+Array
+(
+    [patient_name] => Sia
+    [pickup_location] => 10.047943, 76.3695167
+    [ambulance_type] => Advanced
+    [contact_phone] => 7736783180
+    [date] => 2025-03-11
+)
+
+
+=== Sanitized Input === 2025-03-11 18:23:28 ===
+Array
+(
+    [patient_name] => Sia
+    [pickup_location] => 10.047943, 76.3695167
+    [contact_phone] => 7736783180
+    [ambulance_type] => Advanced
+)
+
+
+=== SQL Query === 2025-03-11 18:23:28 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Sia', '10.047943, 76.3695167', '7736783180', 'Advanced', 'Pending')
+
+=== Success === 2025-03-11 18:23:28 ===
+Insert successful. Request ID: 50
+
