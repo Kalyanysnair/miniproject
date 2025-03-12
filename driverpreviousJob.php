@@ -191,7 +191,6 @@ try {
 
 ?>
 
-
 <!-- Rest of the HTML remains the same -->
 <!DOCTYPE html>
 <html lang="en">
@@ -447,7 +446,6 @@ try {
             <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
         <?php endif; ?>
 
-
             <?php if ($jobs && $jobs->num_rows > 0): ?>
                 <?php while ($job = $jobs->fetch_assoc()): ?>
                     <div class="job-card">
@@ -522,9 +520,7 @@ try {
     <?php endif; ?>
 </div>
 
-
    
-
 
                     
                 <?php endwhile; ?>
@@ -610,3 +606,4 @@ document.getElementById("completeForm").onsubmit = function(e) {
 </script>
 </body>
 </html>
+

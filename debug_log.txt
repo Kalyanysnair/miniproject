@@ -356,3 +356,61 @@ INSERT INTO tbl_emergency
 === Success === 2025-03-11 18:23:28 ===
 Insert successful. Request ID: 50
 
+=== POST Data === 2025-03-12 07:39:32 ===
+Array
+(
+    [patient_name] => Sia
+    [pickup_location] => 9.5197551, 76.8158606
+    [ambulance_type] => Basic
+    [contact_phone] => 7736783189
+    [date] => 2025-03-12
+)
+
+
+=== Sanitized Input === 2025-03-12 07:39:32 ===
+Array
+(
+    [patient_name] => Sia
+    [pickup_location] => 9.5197551, 76.8158606
+    [contact_phone] => 7736783189
+    [ambulance_type] => Basic
+)
+
+
+=== SQL Query === 2025-03-12 07:39:32 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Sia', '9.5197551, 76.8158606', '7736783189', 'Basic', 'Pending')
+
+=== Success === 2025-03-12 07:39:32 ===
+Insert successful. Request ID: 51
+
+=== POST Data === 2025-03-12 07:39:53 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 9.5197551, 76.8158606
+    [ambulance_type] => Advanced
+    [contact_phone] => 9778237180
+    [date] => 2025-03-12
+)
+
+
+=== Sanitized Input === 2025-03-12 07:39:53 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 9.5197551, 76.8158606
+    [contact_phone] => 9778237180
+    [ambulance_type] => Advanced
+)
+
+
+=== SQL Query === 2025-03-12 07:39:53 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Nimal', '9.5197551, 76.8158606', '9778237180', 'Advanced', 'Pending')
+
+=== Success === 2025-03-12 07:39:53 ===
+Insert successful. Request ID: 52
+
