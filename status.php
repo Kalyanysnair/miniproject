@@ -496,7 +496,9 @@ try {
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['prebooking_' . $booking['prebookingid']])): ?>
-                                            <span class="btn btn-success disabled">Paid</span>
+                                            <span class="status-badge status-paid">
+                                                Paid (₹<?php echo number_format($paid_amounts['prebooking_' . $booking['prebookingid']], 2); ?>)
+                                            </span>
                                         <?php else: ?>
                                             <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>, 'prebooking')">
                                                 Pay Now
@@ -538,12 +540,15 @@ try {
                                     <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
                                         <?php echo htmlspecialchars($booking['status']); ?>
                                     </span>
+                                    
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['palliative_' . $booking['palliativeid']])): ?>
-                                            <span class="btn btn-success disabled">Paid</span>
+                                            <span class="status-badge status-paid">
+                                                Paid (₹<?php echo number_format($paid_amounts['palliative_' . $booking['palliativeid']], 2); ?>)
+                                            </span>
                                         <?php else: ?>
                                             <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>, 'palliative')">
                                                 Pay Now
