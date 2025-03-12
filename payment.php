@@ -1,6 +1,118 @@
 <?php
 // Initialize session
 session_start();
+require 'connect.php';
+
+if (!isset($_SESSION['user_id']) || !isset($_GET['request_id']) || !isset($_GET['booking_type'])) {
+    die("Invalid request");
+}
+
+$userid = $_SESSION['user_id'];
+$request_id = $_GET['request_id'];
+$booking_type = $_GET['booking_type'];
+
+// Add this at the beginning of payment.php after getting $request_id
+error_log("Payment Debug: Starting payment process");
+error_log("Payment Debug: REQUEST parameters: " . print_r($_GET, true));
+error_log("Payment Debug: SESSION user_id: " . $_SESSION['user_id']);
+
+// Fetch booking details and calculate amount
+try {
+    // First verify if the booking exists and get its status
+    switch($booking_type) {
+        case 'emergency':
+            $verify_query = "SELECT status, ambulance_type FROM tbl_emergency 
+                           WHERE request_id = ? AND (userid = ? OR userid IS NULL)";
+            break;
+        case 'prebooking':
+            $verify_query = "SELECT status, ambulance_type FROM tbl_prebooking 
+                           WHERE prebookingid = ? AND userid = ?";
+            break;
+        case 'palliative':
+            $verify_query = "SELECT status, ambulance_type FROM tbl_palliative 
+                           WHERE palliativeid = ? AND userid = ?";
+            break;
+        default:
+            error_log("Payment Debug: Invalid booking type: " . $booking_type);
+            die("Invalid booking type: " . htmlspecialchars($booking_type));
+    }
+
+    error_log("Payment Debug: Verify query: " . $verify_query);
+    error_log("Payment Debug: Request ID: " . $request_id . ", User ID: " . $userid);
+
+    // Check if booking exists and its status
+    $stmt = $conn->prepare($verify_query);
+    if (!$stmt) {
+        error_log("Payment Debug: Prepare failed: " . $conn->error);
+        die("Database error: Prepare failed");
+    }
+
+    $stmt->bind_param("ii", $request_id, $userid);
+    $stmt->execute();
+    $verify_result = $stmt->get_result();
+    $booking_check = $verify_result->fetch_assoc();
+
+    if (!$booking_check) {
+        error_log("Payment Debug: No booking found with these parameters:");
+        error_log("Payment Debug: SQL: " . str_replace('?', "'%s'", $verify_query));
+        error_log("Payment Debug: Values: request_id=" . $request_id . ", userid=" . $userid);
+        die("Booking not found. Please check the booking ID. (Type: " . htmlspecialchars($booking_type) . ", ID: " . htmlspecialchars($request_id) . ")");
+    }
+
+    error_log("Payment Debug: Booking found with status: " . $booking_check['status']);
+
+    if ($booking_check['status'] !== 'Completed') {
+        error_log("Payment Debug: Invalid booking status: " . $booking_check['status']);
+        die("This booking is not eligible for payment. Current status: " . htmlspecialchars($booking_check['status']) . " (must be 'Completed')");
+    }
+
+    // Now proceed with the main query
+    switch($booking_type) {
+        case 'emergency':
+            $query = "SELECT request_id, ambulance_type, pickup_location, amount FROM tbl_emergency 
+                     WHERE request_id = ? AND (userid = ? OR userid IS NULL)";
+            break;
+        case 'prebooking':
+            $query = "SELECT prebookingid as request_id, ambulance_type, pickup_location, amount FROM tbl_prebooking 
+                     WHERE prebookingid = ? AND userid = ? AND status = 'Completed'";
+            break;
+        case 'palliative':
+            $query = "SELECT palliativeid as request_id, 'Palliative Care' as ambulance_type, address as pickup_location, amount 
+                     FROM tbl_palliative 
+                     WHERE palliativeid = ? AND userid = ? AND status = 'Completed'";
+            break;
+    }
+
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("ii", $request_id, $userid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $booking = $result->fetch_assoc();
+
+    // Get amount directly from the booking
+    $amount = $booking['amount'];
+
+    // If amount is not set in the database, use default pricing
+    if (!$amount) {
+        switch ($booking['ambulance_type']) {
+            case 'Basic':
+                $amount = 1500;
+                break;
+            case 'Advanced':
+                $amount = 2500;
+                break;
+            case 'Palliative Care':
+                $amount = 3000;
+                break;
+            default:
+                $amount = 2000;
+        }
+    }
+
+} catch (Exception $e) {
+    error_log("Payment Debug: Exception - " . $e->getMessage());
+    die("Error: " . $e->getMessage());
+}
 
 // Display error message if it exists
 $error_message = '';
@@ -82,310 +194,98 @@ function checkExpiryDate($month, $year) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Page</title>
+    <title>Payment - Ambulance Service</title>
+    <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
-        
         body {
-            background-image: url('assets/assets/img/template/Groovin/hero-carousel/road.jpg'); /* Replace with your background image */
+            
+            background-image: url('assets/assets/img/template/Groovin/hero-carousel/road.jpg');
             background-size: cover;
             background-position: center;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            padding-top: 50px;
         }
-        
-        .container {
-            width: 90%;
-            max-width: 450px;
-            background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+        .payment-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            margin-top: 60px;
+            background-color:  rgba(240, 237, 237, 0.59);
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-            padding: 25px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        
-        .header {
-            text-align: center;
+        .booking-details {
             margin-bottom: 20px;
-        }
-        
-        /* .header h1 {
-            font-size: 24px;
-            color: #333;
-        } */ */
-        
-        .amount {
-            background-color: #f5f5f5;
             padding: 15px;
-            text-align: center;
-            margin-bottom: 20px;
+            background-color:rgba(248, 249, 250, 0.63);
             border-radius: 5px;
         }
-        
-        .amount h2 {
-            font-size: 28px;
-            color: #333;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        input, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        
-        .error {
-            color: red;
-            font-size: 14px;
-            margin-top: 5px;
-            display: none;
-        }
-        
-        .system-error {
-            color: red;
-            font-size: 14px;
-            margin-bottom: 15px;
-            text-align: center;
-            display: <?php echo !empty($error_message) ? 'block' : 'none'; ?>;
-        }
-        
-        .row {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .row .form-group {
-            flex: 1;
-        }
-        
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #4CAF50;
+        .payment-button {
+            background-color: #2E8B57;
             color: white;
+            padding: 10px 20px;
             border: none;
             border-radius: 5px;
-            font-size: 16px;
             cursor: pointer;
-            margin-top: 10px;
         }
-        
-        button:hover {
-            background-color: #45a049;
-        }
-        
-        .secure-text {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 14px;
-            color: #666;
+        .payment-button:hover {
+            background-color: #3CB371;
         }
     </style>
 </head>
 <body>
-<!-- <?php include 'header.php';?>  -->
+    <?php include 'header.php'; ?>
     
+    <div class="payment-container">
+        <h2 class="mb-4">Payment Details</h2>
+        
+        <div class="booking-details">
+            <h4>Booking Information</h4>
+            <p><strong>Booking ID:</strong> <?php echo htmlspecialchars($booking['request_id']); ?></p>
+            <p><strong>Service Type:</strong> <?php echo htmlspecialchars($booking['ambulance_type']); ?></p>
+            <p><strong>Location:</strong> <?php echo htmlspecialchars($booking['pickup_location']); ?></p>
+            <p><strong>Amount:</strong> ₹<?php echo number_format($amount, 2); ?></p>
+        </div>
 
-    
-    <div class="container">
-    
-        
-        <div class="amount">
-            <h2>$149.99</h2>
-        </div>
-        
-        <?php if(!empty($error_message)): ?>
-        <div class="system-error">
-            <?php echo htmlspecialchars($error_message); ?>
-        </div>
-        <?php endif; ?>
-        
-        <form id="paymentForm" action="process_payment.php" method="POST">
-            <div class="form-group">
-                <label for="cardName">Cardholder Name</label>
-                <input type="text" id="cardName" name="cardName" required>
-                <div id="nameError" class="error">Please enter the name as it appears on your card</div>
-            </div>
-            
-            <div class="form-group">
-                <label for="cardNumber">Card Number</label>
-                <input type="text" id="cardNumber" name="cardNumber" maxlength="19" required>
-                <div id="cardError" class="error">Please enter a valid card number</div>
-            </div>
-            
-            <div class="row">
-                <div class="form-group">
-                    <label for="expiry">Expiry Date (MM/YY)</label>
-                    <input type="text" id="expiry" name="expiry" maxlength="5" placeholder="MM/YY" required>
-                    <div id="expiryError" class="error">Please enter a valid expiry date</div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="cvv">CVV</label>
-                    <input type="text" id="cvv" name="cvv" maxlength="3" required>
-                    <div id="cvvError" class="error">Please enter a valid CVV</div>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" required>
-                <div id="emailError" class="error">Please enter a valid email address</div>
-            </div>
-            
-            <button type="submit" id="submitBtn">Pay Now</button>
-        </form>
-        
-        <div class="secure-text">
-            <p>Secure Payment Processing</p>
-        </div>
+        <button id="payButton" class="payment-button">Pay Now</button>
     </div>
-    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('paymentForm');
-            const cardNumber = document.getElementById('cardNumber');
-            const expiry = document.getElementById('expiry');
-            const cvv = document.getElementById('cvv');
-            const email = document.getElementById('email');
-            const cardName = document.getElementById('cardName');
-            
-            // Format card number with spaces
-            cardNumber.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-                let formattedValue = '';
-                
-                for (let i = 0; i < value.length; i++) {
-                    if (i > 0 && i % 4 === 0) {
-                        formattedValue += ' ';
-                    }
-                    formattedValue += value[i];
-                }
-                
-                e.target.value = formattedValue;
-            });
-            
-            // Format expiry date
-            expiry.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                
-                if (value.length > 2) {
-                    value = value.substring(0, 2) + '/' + value.substring(2, 4);
-                }
-                
-                e.target.value = value;
-            });
-            
-            // Allow only numbers for CVV
-            cvv.addEventListener('input', function(e) {
-                e.target.value = e.target.value.replace(/\D/g, '');
-            });
-            
-            // Form validation
-            form.addEventListener('submit', function(e) {
-                let isValid = true;
-                
-                // Validate card name
-                if (cardName.value.trim().length < 3) {
-                    document.getElementById('nameError').style.display = 'block';
-                    isValid = false;
-                } else {
-                    document.getElementById('nameError').style.display = 'none';
-                }
-                
-                // Validate card number (simple Luhn algorithm check)
-                const cardVal = cardNumber.value.replace(/\s/g, '');
-                if (cardVal.length < 13 || !luhnCheck(cardVal)) {
-                    document.getElementById('cardError').style.display = 'block';
-                    isValid = false;
-                } else {
-                    document.getElementById('cardError').style.display = 'none';
-                }
-                
-                // Validate expiry date
-                const expiryVal = expiry.value;
-                const expiryRegex = /^(0[1-9]|1[0-2])\/([0-9]{2})$/;
-                
-                if (!expiryRegex.test(expiryVal)) {
-                    document.getElementById('expiryError').style.display = 'block';
-                    isValid = false;
-                } else {
-                    const parts = expiryVal.split('/');
-                    const month = parseInt(parts[0], 10);
-                    const year = parseInt('20' + parts[1], 10);
-                    
-                    const now = new Date();
-                    const currentYear = now.getFullYear();
-                    const currentMonth = now.getMonth() + 1;
-                    
-                    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-                        document.getElementById('expiryError').style.display = 'block';
-                        isValid = false;
+        document.getElementById('payButton').onclick = function(e) {
+            var options = {
+                "key": "rzp_test_3C5rU9ZqNfv2Y8", // Your Razorpay test key
+                "amount": "<?php echo $amount * 100; ?>",
+                "currency": "INR",
+                "name": "Ambulance Service",
+                "description": "Payment for <?php echo htmlspecialchars($booking['ambulance_type']); ?> Service",
+                "handler": function (response) {
+                    if (response.razorpay_payment_id) {
+                        // Handle successful payment
+                        window.location.href = "payment_success.php?payment_id=" + response.razorpay_payment_id 
+                            + "&booking_id=<?php echo $booking['request_id']; ?>"
+                            + "&booking_type=<?php echo $booking_type; ?>";
                     } else {
-                        document.getElementById('expiryError').style.display = 'none';
+                        alert('Payment failed. Please try again.');
+                        window.location.href = "status.php?payment=failed";
+                    }
+                },
+                "prefill": {
+                    "name": "<?php echo $_SESSION['username']; ?>",
+                },
+                "theme": {
+                    "color": "#2E8B57"
+                },
+                "modal": {
+                    "ondismiss": function() {
+                        window.location.href = "status.php?payment=cancelled";
                     }
                 }
-                
-                // Validate CVV
-                if (cvv.value.length !== 3 || !/^\d+$/.test(cvv.value)) {
-                    document.getElementById('cvvError').style.display = 'block';
-                    isValid = false;
-                } else {
-                    document.getElementById('cvvError').style.display = 'none';
-                }
-                
-                // Validate email
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email.value)) {
-                    document.getElementById('emailError').style.display = 'block';
-                    isValid = false;
-                } else {
-                    document.getElementById('emailError').style.display = 'none';
-                }
-                
-                if (!isValid) {
-                    e.preventDefault();
-                }
-            });
-            
-            // Luhn algorithm for credit card validation
-            function luhnCheck(cardNumber) {
-                let sum = 0;
-                let shouldDouble = false;
-                
-                for (let i = cardNumber.length - 1; i >= 0; i--) {
-                    let digit = parseInt(cardNumber.charAt(i));
-                    
-                    if (shouldDouble) {
-                        digit *= 2;
-                        if (digit > 9) digit -= 9;
-                    }
-                    
-                    sum += digit;
-                    shouldDouble = !shouldDouble;
-                }
-                
-                return (sum % 10) === 0;
-            }
-        });
+            };
+            var rzp1 = new Razorpay(options);
+            rzp1.open();
+            e.preventDefault();
+        }
     </script>
 </body>
 </html>

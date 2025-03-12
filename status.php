@@ -10,7 +10,34 @@ if (!isset($_SESSION['user_id'])) {
 $userid = $_SESSION['user_id'];
 $error_message = "";
 
+// Add this after session_start()
+$payment_success = false;
+$payment_amount = 0;
+
+if (isset($_SESSION['payment_success'])) {
+    $payment_success = true;
+    $payment_amount = $_SESSION['payment_amount'];
+    unset($_SESSION['payment_success']);
+    unset($_SESSION['payment_amount']);
+}
+
 try {
+    // Get all paid bookings
+    $paid_bookings_query = "SELECT request_id, request_type, amount FROM tbl_payments 
+                           WHERE userid = ? AND payment_status = 'completed'";
+    $stmt = $conn->prepare($paid_bookings_query);
+    $stmt->bind_param("i", $userid);
+    $stmt->execute();
+    $paid_result = $stmt->get_result();
+    
+    // Create arrays to store paid bookings and amounts
+    $paid_bookings = [];
+    $paid_amounts = [];
+    while($row = $paid_result->fetch_assoc()) {
+        $paid_bookings[$row['request_type'] . '_' . $row['request_id']] = true;
+        $paid_amounts[$row['request_type'] . '_' . $row['request_id']] = $row['amount'];
+    }
+
     // Step 1: Fetch the user's name and phone number from the user table
     $user_query = "SELECT username, phoneno FROM tbl_user WHERE userid = ?";
     $stmt = $conn->prepare($user_query);
@@ -40,18 +67,19 @@ try {
             pickup_location,
             contact_phone,
             status,
+            payment_status,
             created_at,
             ambulance_type,
             patient_name
         FROM tbl_emergency 
-        WHERE patient_name = ? AND contact_phone = ? 
+        WHERE userid = ? OR userid IS NULL
         ORDER BY created_at DESC";
         
     $stmt = $conn->prepare($emergency_query);
     if (!$stmt) {
         throw new Exception("Prepare failed: " . $conn->error);
     }
-    $stmt->bind_param("ss", $patient_name, $contact_phone);
+    $stmt->bind_param("i", $userid);
     $stmt->execute();
     $emergency_bookings = $stmt->get_result();
 
@@ -62,6 +90,16 @@ try {
     } else {
         // echo "Debug: Rows found: " . $emergency_bookings->num_rows . "<br>"; // Debug: Print the number of rows found
     }
+
+    // Add this before the emergency table HTML
+    error_log("Debug Emergency Bookings: User ID = " . $userid);
+    while ($debug_booking = $emergency_bookings->fetch_assoc()) {
+        error_log("Booking ID: " . $debug_booking['request_id'] . 
+                  ", Status: " . $debug_booking['status'] . 
+                  ", UserID: " . $debug_booking['userid']);
+    }
+    // Reset the result pointer
+    mysqli_data_seek($emergency_bookings, 0);
 
     // Fetch prebookings
     $prebookings_query = "
@@ -266,6 +304,11 @@ try {
             color: #721C24;
         }
 
+        .status-paid {
+            background-color: #28a745;
+            color: white;
+        }
+
         .error-message {
             background-color: #F8D7DA;
             color: #721C24;
@@ -288,6 +331,35 @@ try {
             .booking-details {
                 grid-template-columns: 1fr;
             }
+        }
+
+        .btn-success.disabled {
+            background-color: #28a745;
+            cursor: default;
+            opacity: 0.65;
+        }
+
+        .btn-success.disabled:hover {
+            background-color: #28a745;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
         }
     </style>
 </head>
@@ -318,9 +390,24 @@ try {
             </div>
         <?php endif; ?>
 
+        <?php if ($payment_success): ?>
+            <div class="alert alert-success" role="alert">
+                Payment of ₹<?php echo number_format($payment_amount, 2); ?> was successful! Your booking status has been updated.
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['payment']) && $_GET['payment'] === 'failed'): ?>
+            <div class="alert alert-danger" role="alert">
+                Payment failed. Please try again or contact support.
+            </div>
+        <?php endif; ?>
+
         <!-- Emergency Requests -->
         <div class="card">
-            <h2>Emergency Requests</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Emergency Requests</h2>
+                <a href="user1.php" class="btn" style="margin-right: 10px;">Back</a>
+            </div>
             <?php if ($emergency_bookings && $emergency_bookings->num_rows > 0): ?>
                 <table>
                     <thead>
@@ -351,9 +438,17 @@ try {
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
-                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>)">
-                                            Pay Now
-                                        </button>
+                                        <?php if (isset($paid_bookings['emergency_' . $booking['request_id']])): ?>
+                                            <span class="status-badge status-paid">
+                                                Paid (₹<?php echo number_format($paid_amounts['emergency_' . $booking['request_id']], 2); ?>)
+                                            </span>
+                                        <?php else: ?>
+                                            <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>, 'emergency')" 
+                                                    data-booking-id="<?php echo (int)$booking['request_id']; ?>" 
+                                                    data-booking-type="emergency">
+                                                Pay Now
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -400,9 +495,13 @@ try {
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
-                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>)">
-                                            Pay Now
-                                        </button>
+                                        <?php if (isset($paid_bookings['prebooking_' . $booking['prebookingid']])): ?>
+                                            <span class="btn btn-success disabled">Paid</span>
+                                        <?php else: ?>
+                                            <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>, 'prebooking')">
+                                                Pay Now
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -443,9 +542,13 @@ try {
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
                                     <?php if ($booking['status'] == 'Completed'): ?>
-                                        <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>)">
-                                            Pay Now
-                                        </button>
+                                        <?php if (isset($paid_bookings['palliative_' . $booking['palliativeid']])): ?>
+                                            <span class="btn btn-success disabled">Paid</span>
+                                        <?php else: ?>
+                                            <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>, 'palliative')">
+                                                Pay Now
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -459,9 +562,12 @@ try {
     </div>
 
     <script>
-        function proceedToPayment(requestId) {
+        function proceedToPayment(requestId, bookingType) {
+            console.log('Request ID:', requestId, 'Booking Type:', bookingType); // Add debug logging
             if (confirm('Do you want to proceed to payment for this completed service?')) {
-                window.location.href = 'payment.php?request_id=' + requestId;
+                let url = 'payment.php?request_id=' + requestId + '&booking_type=' + bookingType;
+                console.log('Redirecting to:', url); // Add debug logging
+                window.location.href = url;
             }
         }
 
