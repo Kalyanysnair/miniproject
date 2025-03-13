@@ -2,68 +2,48 @@
 session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-$driver_count = isset($_SESSION['driver_count']) ? $_SESSION['driver_count'] : 0;
+include 'connect.php';
+
+// Redirect if not logged in as admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
     header("Location: login.php");
     exit();
 }
 
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "groovin";
+// Fetch Stats
+$total_users = $conn->query("SELECT COUNT(*) as total FROM tbl_user")->fetch_assoc()['total'];
+$driver_count = $conn->query("SELECT COUNT(*) as total FROM tbl_driver")->fetch_assoc()['total'];
+$review_count = $conn->query("SELECT COUNT(*) as total FROM tbl_review")->fetch_assoc()['total'];
 
-$conn = new mysqli($servername, $username, $password, $dbname);
+// Handle Driver Scheduling Form Submission
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['schedule_drivers'])) {
+    $driver1_name = trim($_POST['driver1_name']);
+    $driver2_name = trim($_POST['driver2_name']);
+    $schedule_date = $_POST['schedule_date'];
 
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+    $name_pattern = "/^[a-zA-Z ]+$/"; // Only letters and spaces
 
-// User update handling
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
-    $userid = filter_input(INPUT_POST, 'userid', FILTER_VALIDATE_INT);
-    $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
-    $email = filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL);
-    $phone = filter_input(INPUT_POST, 'phoneno', FILTER_SANITIZE_STRING);
+    if (!preg_match($name_pattern, $driver1_name) || !preg_match($name_pattern, $driver2_name)) {
+        $error_msg = "Driver names must only contain letters and spaces.";
+    } elseif (strtotime($schedule_date) < strtotime(date('Y-m-d'))) {
+        $error_msg = "Schedule date cannot be in the past.";
+    } else {
+        $stmt = $conn->prepare("INSERT INTO tbl_scheduled_drivers (driver1_name, driver2_name, schedule_date) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $driver1_name, $driver2_name, $schedule_date);
 
-    if ($userid && $username && $email && $phone) {
-        $sql = "UPDATE tbl_user SET username = ?, email = ?, phoneno = ? WHERE userid = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssi", $username, $email, $phone, $userid);
-        
         if ($stmt->execute()) {
-            $_SESSION['message'] = 'User updated successfully';
+            $success_msg = "Drivers scheduled successfully!";
         } else {
-            $_SESSION['error'] = 'Failed to update user';
+            $error_msg = "Error scheduling drivers. Please try again.";
         }
         $stmt->close();
     }
 }
 
-// Fetch users and count
-$sql = "SELECT userid, username, email, phoneno, role FROM tbl_user";
-$result = $conn->query($sql);
-$total_users = $result ? $result->num_rows : 0;
-
-$query = "SELECT r.review_id, u.username, r.message, r.rating, r.created_at 
-          FROM tbl_review r
-          JOIN tbl_user u ON r.user_id = u.userid
-          ORDER BY r.created_at DESC";
-
-$result = $conn->query($query);
-// Count the number of reviews
-$review_count = $result->num_rows;
-
-
-$query = "SELECT COUNT(*) AS driver_count FROM tbl_driver";
-$result = $conn->query($query);
-$driver_count = 0;
-
-if ($result->num_rows > 0) {
-    $row = $result->fetch_assoc();
-    $driver_count = $row['driver_count'];
-}
+// Get Current Page Name
+$current_page = basename($_SERVER['PHP_SELF']);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,114 +51,55 @@ if ($result->num_rows > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SwiftAid Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
             --primary-color: #008374;
-            --secondary-color: #f1f4f3;
-            --text-color: #333;
+            --hover-color: #00a28a;
+            --text-color: #ffffff;
+            --sidebar-width: 250px;
+            --sidebar-bg: rgba(0, 0, 0, 0.3);
+            --card-bg: rgba(255, 255, 255, 0.15);
         }
+        
         body {
-            background-color: var(--secondary-color);
-            font-family: 'Arial', sans-serif;
             margin: 0;
-            padding: 0;
+            font-family: Arial, sans-serif;
+            background: url('assets/assets/img/template/Groovin/hero-carousel/ambulance2.jpg') no-repeat center center/cover;
         }
-        .background-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            opacity: 0.1;
-            z-index: -1;
-        }
-        .admin-container {
-            max-width: 1200px;
-            margin: 50px auto;
-            padding: 20px;
-            position: relative;
-        }
-        .dashboard-header {
+
+        .wrapper {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            background: rgba(255,255,255,0.8);
-            padding: 15px;
-            border-radius: 10px;
+            height: 100vh;
         }
-        :root {
-    --primary-color: #008374;
-    --secondary-color: #f1f4f3;
-    --text-color: #333;
-}
 
-body {
-    background-color: var(--secondary-color);
-    font-family: 'Arial', sans-serif;
-    margin: 0;
-    padding: 0;
-}
+        #sidebar {
+            width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            color: var(--text-color);
+            height: 100%;
+            position: fixed;
+            backdrop-filter: blur(10px);
+        }
 
-.background-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-     background-image: url('assets/assets/img/template/Groovin/hero-carousel/road.jpg');  
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    opacity: 0.8;
-    z-index: -1;
-}
+        #sidebar a {
+            color: #fff;
+            text-decoration: none;
+            padding: 15px;
+            display: block;
+            transition: background 0.3s;
+        }
 
-.admin-container {
-    max-width: 1200px;
-    margin: 50px auto;
-    padding: 20px;
-    position: relative;
-}
+        #sidebar a:hover, #sidebar a.active {
+            background: var(--hover-color);
+        }
 
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    background: rgba(255, 255, 255, 0.5); /* Semi-transparent background */
-    padding: 15px;
-    border-radius: 10px;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-}
-
-.stat-card {
-    background:rgba(113, 110, 110, 0.51); /* Semi-transparent background */
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease;
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-}
-
-.user-management-card {
-    background: rgba(34, 22, 22, 0.46); /* Semi-transparent background */
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+        #content {
+            width: calc(100% - var(--sidebar-width));
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
 
         .stats-grid {
             display: grid;
@@ -186,118 +107,94 @@ body {
             gap: 20px;
             margin-bottom: 30px;
         }
+        
         .stat-card {
-            background: rgba(247, 242, 242, 0.73);
-            border-radius: 10px;
+            background: var(--card-bg);
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
+            text-align: center;
+            border-radius: 10px;
+            color: #fff;
+            transition: transform 0.3s;
         }
+
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.3);
         }
-        .user-management-card {
-            background:rgba(255, 251, 251, 0.81);
-            border-radius: 10px;
+
+        .container-box {
+            background: rgba(255, 255, 255, 0.2);
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            max-width: 900px;
+            margin: 0 auto;
+            backdrop-filter: blur(15px);
         }
-        .user-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .user-table th, .user-table td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-        }
-        .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-        #backgroundPreview {
-            max-width: 100%;
-            max-height: 300px;
-            margin-top: 20px;
-        }
+
         .logout-btn {
-            background-color:rgb(53, 220, 61);
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .logout-btn:hover {
-            background-color:rgb(46, 200, 35);
+            width: 80%;
+            margin: 10px auto;
+            font-size: 14px;
+            padding: 8px;
         }
     </style>
 </head>
 <body>
-    <div class="background-overlay" id="backgroundOverlay"></div>
-    
-    <div class="admin-container">
-        <div class="dashboard-header">
-            <h1>Admin Dashboard</h1>
-            <a href="logout.php" class="logout-btn">Logout</a>
-        </div>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <h3 class="text-center p-3">SwiftAid Admin</h3>
+            <a href="index.php" class="<?= $current_page == 'index.php' ? 'active' : ''; ?>"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="UserManagement.php"><i class="fas fa-users"></i> User Management</a>
+            <a href="add_driver.php"><i class="fas fa-user-plus"></i> Add Drivers</a>
+            <a href="driver_detail.php"><i class="fas fa-id-card"></i> Driver Details</a>
+            <a href="admin_review.php"><i class="fas fa-star"></i> Feedback</a>
+            <a href="admin_payments.php"><i class="fas fa-credit-card"></i> Payments</a>
+            <a href="emergency_schedule.php"><i class="fas fa-calendar-alt"></i> Emergency Schedule</a>
+            <a href="logout.php" class="btn btn-danger logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </nav>
 
-        <div class="stats-grid">
-        <a href="UserManagement.php" style="text-decoration: none; color: inherit;">
-    <div class="stat-card">
-        <h3>User Management</h3>
-        <p class="display-4"><?php echo $total_users; ?></p>
+        <!-- Page Content -->
+        <div id="content">
+            <h1>Dashboard Overview</h1>
+            <div class="stats-grid">
+                <a href="UserManagement.php" class="stat-card text-decoration-none">
+                    <h3>Total Users</h3>
+                    <p class="display-4"><?= $total_users; ?></p>
+                </a>
+                <a href="driver_detail.php" class="stat-card text-decoration-none">
+                    <h3>Drive Count</h3>
+                    <p class="display-4"><?= $driver_count; ?></p>
+                </a>
+                <a href="payments.php" class="stat-card text-decoration-none">
+                    <h3>Review</h3>
+                    <p class="display-4"><?= $review_count; ?></p>
+                </a>
+            </div>
+
+            <!-- Driver Scheduling Form -->
+            <div class="container-box">
+                <h3>Schedule Drivers</h3>
+                <?php if (isset($success_msg)) echo "<div class='alert alert-success'>$success_msg</div>"; ?>
+                <?php if (isset($error_msg)) echo "<div class='alert alert-danger'>$error_msg</div>"; ?>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Driver 1 Name</label>
+                        <input type="text" class="form-control" name="driver1_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Driver 2 Name</label>
+                        <input type="text" class="form-control" name="driver2_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Schedule Date</label>
+                        <input type="date" class="form-control" name="schedule_date" required>
+                    </div>
+                    <button type="submit" name="schedule_drivers" class="btn btn-primary">Schedule</button>
+                </form>
+            </div>
+        </div>
     </div>
-</a>
-<a href="add_driver.php" style="text-decoration: none; color: inherit;">
-            <div class="stat-card">
-                <h3>Add Drivers</h3>
-                <p class="display-4"><?php echo $driver_count; ?></p>
-            </div>
-    </a>
-<a href="driver_detail.php" style="text-decoration: none; color: inherit;">
-            <div class="stat-card">
-                <h3>Driver Details</h3>
-                <p class="display-4"><?php echo $driver_count; ?></p>
-            </div>
-    </a>
-   
-            
-        </div>
-        <a href="admin_review.php" style="text-decoration: none; color: inherit;">
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>Feedback</h3>
-                <p class="display-4"><?php echo $review_count; ?></p>
-            </div>
-    </a>
-            <div class="stat-card">
-                <h3>Payment</h3>
-                <p class="display-4">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Feedback</h3>
-                <p class="display-4">0</p>
-            </div>
-        </div>
-        <div class="stats-grid">
-        <!-- <div class="stat-card">
-                <h3>Ambulance</h3>
-                <p class="display-4">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Payment</h3>
-                <p class="display-4">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Feedback</h3>
-                <p class="display-4">0</p>
-            </div> -->
-        </div>
-
-        
 </body>
 </html>
-<?php
-$conn->close();
-?>

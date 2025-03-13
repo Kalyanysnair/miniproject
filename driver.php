@@ -327,6 +327,11 @@
                     <i class="bi bi-clock-history"></i>
                     <span>Previous Jobs</span>
                 </a>
+            </li> 
+            <li>
+            <a href="driver_schedule.php">
+            <i class="bi bi-clock-history"></i><span> Emergency Schedule</span>
+            </a>
             </li>
             <li>
                 <a href="driver_review.php">
@@ -340,6 +345,7 @@
                     <span>Logout</span>
                 </a>
             </li>
+
         </ul>
     </aside>
 
