@@ -9,35 +9,53 @@ switch ($paymentType) {
     case 'prebookings':
         $table = 'tbl_prebooking';
         $idColumn = 'prebookingid';
-        $statusValue = "'Completed'"; 
-        $patientColumn = "CONCAT('Patient') AS patient_name"; 
+        $statusValue = "'Completed'";
+        $patientColumn = "COALESCE(u_req.username, 'Not Specified') AS patient_name";
+        $locationColumn = 'pickup_location';
         $driverIdColumn = 'driver_id';
         break;
     case 'palliative':
         $table = 'tbl_palliative';
         $idColumn = 'palliativeid';
-        $statusValue = "'Completed'"; 
-       
-        $patientColumn = "CONCAT('Palliative Care') AS patient_name";
+        $statusValue = "'Completed'";
+        $patientColumn = "medical_condition AS patient_name";
+        $locationColumn = 'address';
         $driverIdColumn = 'driver_id';
         break;
-    default:
+    default: // emergency
         $table = 'tbl_emergency';
         $idColumn = 'request_id';
-        $statusValue = "'Completed'"; 
-        $patientColumn = 'patient_name';
+        $statusValue = "'Completed'";
+        $patientColumn = "patient_name";
+        $locationColumn = 'pickup_location';
         $driverIdColumn = 'driver_id';
         break;
 }
-$sql = "SELECT p.$idColumn AS id, p.userid, 
-               u.username, 
-               $patientColumn, p.amount, p.payment_status, p.created_at,
-               d.driver_id, d.vehicle_no, d.ambulance_type, u2.username AS driver_name
+
+$sql = "SELECT 
+            p.$idColumn AS id,
+            p.userid,
+            $patientColumn,
+            p.$locationColumn AS location,
+            p.amount,
+            p.payment_status,
+            p.created_at,
+            p.ambulance_type as request_ambulance_type,
+            d.driver_id,
+            d.vehicle_no,
+            d.ambulance_type as driver_ambulance_type,
+            d.service_area,
+            u_drv.username AS driver_name,
+            u_drv.phoneno AS driver_phone,
+            u_drv.userid AS driver_userid,
+            u_req.username AS requester_name,
+            u_req.userid AS requester_userid
         FROM $table p
-        LEFT JOIN tbl_user u ON p.userid = u.userid
+        LEFT JOIN tbl_user u_req ON p.userid = u_req.userid
         LEFT JOIN tbl_driver d ON p.$driverIdColumn = d.driver_id
-        LEFT JOIN tbl_user u2 ON d.userid = u2.userid
-        WHERE p.status = $statusValue AND p.amount > 0";
+        LEFT JOIN tbl_user u_drv ON d.userid = u_drv.userid
+        WHERE p.status = $statusValue 
+        AND p.amount > 0";
 
 $params = [];
 $paramTypes = "";
@@ -47,7 +65,7 @@ if ($paymentStatus !== 'all') {
     $paramTypes .= "s";
 }
 if (!empty($searchQuery)) {
-    $sql .= " AND (p.$idColumn LIKE ? OR u.username LIKE ?)";
+    $sql .= " AND (p.$idColumn LIKE ? OR u_drv.username LIKE ?)";
     $params[] = "%$searchQuery%";
     $params[] = "%$searchQuery%";
     $paramTypes .= "ss";
@@ -95,7 +113,7 @@ function isSelected($current, $check) {
     <style>
         :root {
             --primary-color: #4a6fdc;
-            --secondary-color: #f8f9fa;
+            --secondary-color:rgb(234, 235, 236);
             --accent-color: #5cb85c;
             --warning-color: #f0ad4e;
             --danger-color: #d9534f;
@@ -121,10 +139,11 @@ function isSelected($current, $check) {
         }
         
         .container {
+            position: relative;
             max-width: 1200px;
             margin: 30px auto;
             padding: 20px;
-            background:  rgba(252, 250, 250, 0.86);
+            background:  rgba(249, 245, 245, 0.86);
             border-radius: 8px;
             box-shadow: var(--shadow);
         }
@@ -221,13 +240,38 @@ function isSelected($current, $check) {
             color: #f57c00;
         }
         
-        .user-info {
+        .user-info, .vehicle-info, .date-info {
             display: flex;
             flex-direction: column;
+            gap: 4px;
         }
         
         .username {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .user-id, .phone, .ambulance-type {
+            font-size: 0.85rem;
+            color: var(--light-text);
+        }
+        
+        .vehicle-no {
             font-weight: 500;
+        }
+        
+        .amount {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+        
+        .date-info .time {
+            font-size: 0.85rem;
+            color: var(--light-text);
+        }
+        
+        .vehicle-info .ambulance-type {
+            text-transform: capitalize;
         }
         
         .empty-state {
@@ -240,6 +284,26 @@ function isSelected($current, $check) {
             font-size: 3rem;
             margin-bottom: 15px;
             color: var(--border-color);
+        }
+        
+        .not-assigned {
+            color: #999;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+        
+        .user-info .username {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .user-info .user-id {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        .vehicle-info {
+            color: #444;
         }
         
         @media screen and (max-width: 768px) {
@@ -261,9 +325,91 @@ function isSelected($current, $check) {
                 grid-template-columns: 1fr;
             }
         }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            text-decoration: none;
+            color: #fff;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: rgba(74, 111, 220, 0.9);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .back-button:hover {
+            transform: translateX(-5px);
+            background: var(--accent-color);
+        }
+
+        .service-area {
+            font-size: 0.85rem;
+            color: var(--light-text);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .phone {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .vehicle-no {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+        }
+
+        .ambulance-type {
+            color: var(--primary-color);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .user-info i, .vehicle-info i {
+            color: var(--primary-color);
+            font-size: 0.9rem;
+        }
+
+        .id-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .request-id {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .user-id {
+            font-size: 0.85rem;
+            color: var(--light-text);
+        }
+
+        .username small {
+            color: var(--light-text);
+            font-size: 0.85rem;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
+    <a href="admin.php" class="back-button">
+        <i class="fas fa-chevron-left"></i>
+    </a>
+    
     <div class="container">
         <div class="header">
             <h1>Payment Details</h1>
@@ -307,11 +453,11 @@ function isSelected($current, $check) {
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        
-                        <th>Patient</th>
-                        <th>Driver</th>
-                        <th>Vehicle</th>
+                        <th>ID/User ID</th>
+                        <th>Patient/Service</th>
+                        <th>Location</th>
+                        <th>Driver Details</th>
+                        <th>Vehicle Info</th>
                         <th>Amount</th>
                         <th>Status</th>
                         <th>Date</th>
@@ -328,17 +474,68 @@ function isSelected($current, $check) {
                     <?php else: ?>
                         <?php foreach ($payments as $payment): ?>
                             <tr>
-                                <td><?= htmlspecialchars($payment['id']) ?></td>
-                                <td><?= htmlspecialchars($payment['patient_name'] ?? 'N/A') ?></td>
-                                <td><?= htmlspecialchars($payment['driver_name'] ?? 'N/A') ?></td>
-                                <td><?= htmlspecialchars($payment['vehicle_no'] ?? 'N/A') ?></td>
-                                <td>$<?= number_format((float)$payment['amount'], 2) ?></td>
+                                <td>
+                                    <div class="id-info">
+                                        <span class="request-id">Request #<?= htmlspecialchars($payment['id']) ?></span>
+                                        <span class="user-id">User ID: <?= htmlspecialchars($payment['userid']) ?></span>
+                                    </div>
+                                </td>
+                                <td><?= htmlspecialchars($payment['patient_name']) ?></td>
+                                <td><?= htmlspecialchars($payment['location']) ?></td>
+                                <td>
+                                    <div class="user-info">
+                                        <?php if ($payment['driver_name'] && $payment['driver_userid']): ?>
+                                            <span class="username">
+                                                <i class="fas fa-user"></i>
+                                                <?= htmlspecialchars($payment['driver_name']) ?>
+                                                <small>(ID: <?= htmlspecialchars($payment['driver_userid']) ?>)</small>
+                                            </span>
+                                            <?php if ($payment['driver_phone']): ?>
+                                                <span class="phone">
+                                                    <i class="fas fa-phone"></i> 
+                                                    <?= htmlspecialchars($payment['driver_phone']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if ($payment['service_area']): ?>
+                                                <span class="service-area">
+                                                    <i class="fas fa-map-marker-alt"></i> 
+                                                    <?= htmlspecialchars($payment['service_area']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            <span class="not-assigned">Driver Not Assigned</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="vehicle-info">
+                                        <?php if ($payment['vehicle_no'] && $payment['driver_ambulance_type']): ?>
+                                            <span class="vehicle-no">
+                                                <i class="fas fa-ambulance"></i> 
+                                                <?= htmlspecialchars($payment['vehicle_no']) ?>
+                                            </span>
+                                            <span class="ambulance-type">
+                                                Type: <?= htmlspecialchars($payment['driver_ambulance_type']) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="not-assigned">Vehicle Not Assigned</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="amount">₹<?= number_format((float)$payment['amount'], 2) ?></span>
+                                </td>
                                 <td>
                                     <span class="status <?= strtolower($payment['payment_status']) === 'paid' ? 'status-paid' : 'status-pending' ?>">
-                                        <?= htmlspecialchars($payment['payment_status']) ?>
+                                        <?= htmlspecialchars($payment['payment_status'] ?: 'Pending') ?>
                                     </span>
                                 </td>
-                                <td><?= date('M d, Y', strtotime($payment['created_at'])) ?></td>
+                                <td>
+                                    <div class="date-info">
+                                        <span class="created"><?= date('M d, Y', strtotime($payment['created_at'])) ?></span>
+                                        <span class="time"><?= date('h:i A', strtotime($payment['created_at'])) ?></span>
+                                    </div>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>

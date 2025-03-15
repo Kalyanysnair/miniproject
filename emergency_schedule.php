@@ -78,7 +78,7 @@ $result = $stmt->get_result();
         }
 
         .container-box {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(213, 210, 210, 0.57);
             padding: 20px;
             border-radius: 10px;
             max-width: 800px;
@@ -87,7 +87,7 @@ $result = $stmt->get_result();
         }
 
         .table-container {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.52);
             padding: 20px;
             border-radius: 10px;
             backdrop-filter: blur(10px);
@@ -135,7 +135,7 @@ $result = $stmt->get_result();
     <!-- Back Button -->
     <a href="admin.php" class="back-btn"><i class="fas fa-chevron-left"></i></a>
 
-    <div id="content">
+    <div id="content"><br>
         <h1>Emergency Driver Schedule</h1>
 
         <!-- Search Bar -->
