@@ -151,6 +151,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <a href="admin_review.php"><i class="fas fa-star"></i> Feedback</a>
             <a href="admin_payments.php"><i class="fas fa-credit-card"></i> Payments</a>
             <a href="emergency_schedule.php"><i class="fas fa-calendar-alt"></i> Emergency Schedule</a>
+            <a href="admin_driver_requests.php"><i class="fas fa-calendar-alt"></i> Driver Management</a>
             <a href="logout.php" class="btn btn-danger logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </nav>
 
@@ -163,7 +164,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <p class="display-4"><?= $total_users; ?></p>
                 </a>
                 <a href="driver_detail.php" class="stat-card text-decoration-none">
-                    <h3>Drive Count</h3>
+                    <h3>Driver Count</h3>
                     <p class="display-4"><?= $driver_count; ?></p>
                 </a>
                 <a href="payments.php" class="stat-card text-decoration-none">

@@ -168,7 +168,7 @@ if (!$result) {
                         echo "<td>" . htmlspecialchars($phone) . "</td>";
                         echo "<td>" . htmlspecialchars($role) . "</td>";
                         echo "<td>
-                                <button class='btn btn-sm btn-danger delete-btn' data-userid='" . htmlspecialchars($userid) . "'>Delete</button>
+                                <button class='btn btn-sm btn-danger delete-btn' data-userid='" . htmlspecialchars($userid) . "'>Deactivate</button>
                               </td>";
                         echo "</tr>";
                     }

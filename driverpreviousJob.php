@@ -215,11 +215,12 @@ try {
         p.status,
         p.created_at,
         p.updated_at,
-        p.medical_condition as patient_name,
+        u.username as patient_name,
         p.amount,
         COALESCE(p.payment_status, 'Pending') as payment_status,
         'palliative' as request_type,
-        u.username as requester_name
+        u.username as requester_name,
+        p.medical_condition
     FROM tbl_palliative p
     LEFT JOIN tbl_user u ON p.userid = u.userid
     WHERE p.driver_id = ?";

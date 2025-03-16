@@ -19,7 +19,7 @@ $success_message = '';
 // Check if form is submitted with correct parameters
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isset($_POST["request_type"]) && $_POST["request_type"] === "palliative") {
     $palliative_id = filter_var($_POST["request_id"], FILTER_VALIDATE_INT);
-    $driver_id = (int)$_SESSION["user_id"];
+    $driver_id = $_SESSION["user_id"]; // Get the driver's user ID from session
 
     if ($palliative_id === false || $palliative_id === 0) {
         $error_message = "Invalid request ID.";
@@ -39,10 +39,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
             $current_status = $check_result->fetch_assoc();
 
             if ($current_status && $current_status['status'] === 'Pending') {
-                // Update request status - FIXED: Changed 'Accepted' to 'Approved' to match enum values
+                // Update request status and set driver_id
                 $update_stmt = $mysqli->prepare("
                     UPDATE tbl_palliative 
-                    SET status = 'Approved'
+                    SET status = 'Approved', driver_id = ?
                     WHERE palliativeid = ? AND status = 'Pending'
                 ");
                 
@@ -50,11 +50,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                     throw new Exception("Failed to prepare update statement: " . $mysqli->error);
                 }
 
-                $update_stmt->bind_param("i", $palliative_id);
+                $update_stmt->bind_param("ii", $driver_id, $palliative_id);
                 $update_stmt->execute();
 
                 if ($update_stmt->affected_rows > 0) {
-                    // Fetch request details
+                    // Fetch request details for email
                     $fetch_stmt = $mysqli->prepare("
                         SELECT 
                             u.username AS patient_name, 
@@ -102,7 +102,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                                     <p>Your palliative care request has been accepted.</p>
                                     <p><strong>Pickup Location:</strong> {$request_data['pickup_location']}</p>
                                     <p>A driver will assist you shortly.</p>
-                                    
                                     <br>
                                     <p>Best Regards,<br>SWIFTAID Team</p>
                                 </body>

@@ -44,18 +44,6 @@ if ($stmt = $conn->prepare($query)) {
     die("Error preparing query: " . $conn->error);
 }
 
-// Function to assign an available driver
-function getAvailableDriverId($conn) {
-    $query = "SELECT userid FROM tbl_user WHERE role = 'driver' LIMIT 1";
-    $stmt = $conn->prepare($query);
-    $stmt->execute();
-    $stmt->bind_result($driver_id);
-    $stmt->fetch();
-    $stmt->close();
-    
-    return $driver_id ?: NULL; // Return NULL if no driver is available
-}
-
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $comments = !empty($_POST['comments']) ? $_POST['comments'] : null;
@@ -63,17 +51,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $address = $_POST['address'];
     $medical_condition = $_POST['medical_condition'];
     $ambulance_type = 'palliative'; // Default type
-    $driver_id = getAvailableDriverId($conn); // Assign driver
 
     $insert_query = "INSERT INTO tbl_palliative (
         userid, comments, additional_requirements, address, 
-        medical_condition, status, ambulance_type, driver_id
-    ) VALUES (?, ?, ?, ?, ?, 'Pending', ?, ?)";
+        medical_condition, status, ambulance_type
+    ) VALUES (?, ?, ?, ?, ?, 'Pending', ?)";
 
     $stmt = $conn->prepare($insert_query);
-    $stmt->bind_param("isssssi", 
+    $stmt->bind_param("isssss", 
         $user_id, $comments, $requirements, $address, 
-        $medical_condition, $ambulance_type, $driver_id
+        $medical_condition, $ambulance_type
     );
 
     if ($stmt->execute()) {
