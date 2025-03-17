@@ -8,17 +8,21 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userid = $_SESSION['user_id'];
-$error_message = "";
-
-// Add this after session_start()
 $payment_success = false;
 $payment_amount = 0;
+$payment_failed = false;
+$error_message = "";
 
-if (isset($_SESSION['payment_success'])) {
+if (isset($_SESSION['payment_success']) && $_SESSION['payment_success'] === true) {
     $payment_success = true;
-    $payment_amount = $_SESSION['payment_amount'];
+    $payment_amount = isset($_SESSION['payment_amount']) ? $_SESSION['payment_amount'] : 0;
     unset($_SESSION['payment_success']);
     unset($_SESSION['payment_amount']);
+}
+
+if (isset($_SESSION['payment_failed']) && $_SESSION['payment_failed'] === true) {
+    $payment_failed = true;
+    unset($_SESSION['payment_failed']);
 }
 
 try {
@@ -384,21 +388,21 @@ try {
     <div class="container">
         <?php include 'header.php'; ?>
 
-        <?php if ($error_message): ?>
-            <div class="error-message">
-                <?php echo htmlspecialchars($error_message); ?>
-            </div>
-        <?php endif; ?>
-
         <?php if ($payment_success): ?>
             <div class="alert alert-success" role="alert">
                 Payment of ₹<?php echo number_format($payment_amount, 2); ?> was successful! Your booking status has been updated.
             </div>
         <?php endif; ?>
 
-        <?php if (isset($_GET['payment']) && $_GET['payment'] === 'failed'): ?>
+        <?php if ($payment_failed): ?>
             <div class="alert alert-danger" role="alert">
                 Payment failed. Please try again or contact support.
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error_message && !$payment_success): ?>
+            <div class="error-message">
+                <?php echo htmlspecialchars($error_message); ?>
             </div>
         <?php endif; ?>
 

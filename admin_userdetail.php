@@ -1,6 +1,6 @@
 <?php
 session_start();
-include('db_connection.php'); // Ensure database connection is included
+include('connect.php'); // Ensure database connection is included
 
 // Fetch users for dropdown
 $users = mysqli_query($conn, "SELECT userid, username FROM tbl_user");
@@ -16,15 +16,36 @@ if (isset($_POST['selected_user'])) {
     $userDetails = mysqli_fetch_assoc($userQuery);
     
     // Fetch user requests from different tables
-    $requests = mysqli_query($conn, "
-        SELECT 'Prebooking' as type, prebookingid as request_id, pickup_location, destination, status, amount, payment_status, created_at 
-        FROM tbl_prebooking WHERE userid = '$selectedUser'
-        UNION ALL
-        SELECT 'Palliative' as type, palliativeid as request_id, address, medical_condition, status, amount, payment_status, created_at 
-        FROM tbl_palliative WHERE userid = '$selectedUser'
-        UNION ALL
-        SELECT 'Emergency' as type, request_id, pickup_location, patient_name, status, amount, payment_status, created_at 
-        FROM tbl_emergency WHERE userid = '$selectedUser'");
+  // Fetch user requests from different tables
+  $query = "
+    SELECT 'Prebooking' as type, 
+           prebookingid as request_id, 
+           CAST(pickup_location AS CHAR CHARACTER SET utf8) AS location, 
+           CAST(destination AS CHAR CHARACTER SET utf8) AS details, 
+           status, amount, payment_status, created_at 
+    FROM tbl_prebooking WHERE userid = '$selectedUser'
+    UNION ALL
+    SELECT 'Palliative' as type, 
+           palliativeid as request_id, 
+           CAST(address AS CHAR CHARACTER SET utf8) AS location, 
+           CAST(medical_condition AS CHAR CHARACTER SET utf8) AS details, 
+           status, amount, payment_status, created_at 
+    FROM tbl_palliative WHERE userid = '$selectedUser'
+    UNION ALL
+    SELECT 'Emergency' as type, 
+           request_id, 
+           CAST(pickup_location AS CHAR CHARACTER SET utf8) AS location, 
+           CAST(patient_name AS CHAR CHARACTER SET utf8) AS details, 
+           status, amount, payment_status, created_at 
+    FROM tbl_emergency WHERE userid = '$selectedUser'";
+
+
+$requests = mysqli_query($conn, $query);
+
+// Check if the query was successful
+if (!$requests) {
+die("Query Error: " . mysqli_error($conn));
+}
 }
 ?>
 
@@ -36,7 +57,7 @@ if (isset($_POST['selected_user'])) {
     <title>Admin - User Requests</title>
     <style>
         body {
-            background: url('admin_bg.jpg') no-repeat center center fixed;
+            background: url('assets/assets/img//template/Groovin/hero-carousel/ambulance2.jpg')no-repeat center center fixed;
             background-size: cover;
             font-family: Arial, sans-serif;
         }

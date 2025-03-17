@@ -72,7 +72,7 @@ $result = $stmt->get_result();
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             padding: 20px;
             backdrop-filter: blur(5px);
         }
@@ -93,11 +93,24 @@ $result = $stmt->get_result();
             backdrop-filter: blur(10px);
             max-width: 1000px;
             width: 90%;
+            overflow: hidden;
+        }
+
+        .table-responsive {
+            max-height: 60vh;
+            overflow-y: auto;
         }
 
         .table thead {
             background: var(--primary-color);
             color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table thead th {
+            border-bottom: 2px solid #dee2e6;
         }
 
         .pagination a {
@@ -151,36 +164,38 @@ $result = $stmt->get_result();
         <!-- Scheduled Drivers Table -->
         <div class="table-container">
             <h3>Scheduled Drivers</h3>
-            <table class="table table-bordered table-hover">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Driver 1</th>
-                        <th>Driver 2</th>
-                        <th>Scheduled Date</th>
-                        <th>Day</th>
-                        <th>Created At</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php while ($row = $result->fetch_assoc()): ?>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
                         <tr>
-                            <td><?= $row['id']; ?></td>
-                            <td><?= htmlspecialchars($row['driver1_name']); ?></td>
-                            <td><?= htmlspecialchars($row['driver2_name']); ?></td>
-                            <td><?= $row['schedule_date']; ?></td>
-                            <td><?= date('l', strtotime($row['schedule_date'])); ?></td> <!-- Display Day -->
-                            <td><?= $row['created_at']; ?></td>
-                            <td>
-                                <a href="edit_schedule.php?id=<?= $row['id']; ?>" class="btn btn-warning btn-sm">
-                                    <i class="fas fa-edit"></i> Edit
-                                </a>
-                            </td>
+                            <th>ID</th>
+                            <th>Driver 1</th>
+                            <th>Driver 2</th>
+                            <th>Scheduled Date</th>
+                            <th>Day</th>
+                            <th>Created At</th>
+                            <th>Action</th>
                         </tr>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = $result->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= $row['id']; ?></td>
+                                <td><?= htmlspecialchars($row['driver1_name']); ?></td>
+                                <td><?= htmlspecialchars($row['driver2_name']); ?></td>
+                                <td><?= $row['schedule_date']; ?></td>
+                                <td><?= date('l', strtotime($row['schedule_date'])); ?></td> <!-- Display Day -->
+                                <td><?= $row['created_at']; ?></td>
+                                <td>
+                                    <a href="edit_schedule.php?id=<?= $row['id']; ?>" class="btn btn-warning btn-sm">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
 
             <!-- Pagination -->
             <div class="pagination">

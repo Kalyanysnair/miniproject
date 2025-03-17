@@ -6,6 +6,9 @@ require 'connect.php';
 // Debug logging
 error_log("Payment Success: Received parameters - " . print_r($_GET, true));
 
+// Clear any existing payment status messages
+unset($_SESSION['payment_failed']);
+
 if (!isset($_SESSION['user_id']) || !isset($_GET['payment_id']) || !isset($_GET['booking_id']) || !isset($_GET['booking_type'])) {
     error_log("Payment Success: Missing required parameters");
     die("Invalid request - Missing parameters");
@@ -133,9 +136,9 @@ try {
     // Set success message
     $_SESSION['payment_success'] = true;
     $_SESSION['payment_amount'] = $amount;
-
-    // Redirect to status page
-    header("Location: status.php?payment=success");
+    
+    // Redirect to status page without query parameters
+    header("Location: status.php");
     exit();
 
 } catch (Exception $e) {
@@ -144,7 +147,8 @@ try {
         $conn->rollback();
     }
     error_log("Payment recording failed: " . $e->getMessage());
-    header("Location: status.php?payment=failed&error=" . urlencode($e->getMessage()));
+    $_SESSION['payment_failed'] = true;
+    header("Location: status.php");
     exit();
 }
 ?>

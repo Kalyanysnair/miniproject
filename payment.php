@@ -266,8 +266,9 @@ function checkExpiryDate($month, $year) {
                             + "&booking_id=<?php echo $booking['request_id']; ?>"
                             + "&booking_type=<?php echo $booking_type; ?>";
                     } else {
-                        alert('Payment failed. Please try again.');
-                        window.location.href = "status.php?payment=failed";
+                        // Set payment failed in session and redirect
+                        <?php $_SESSION['payment_failed'] = true; ?>
+                        window.location.href = "status.php";
                     }
                 },
                 "prefill": {
@@ -278,7 +279,8 @@ function checkExpiryDate($month, $year) {
                 },
                 "modal": {
                     "ondismiss": function() {
-                        window.location.href = "status.php?payment=cancelled";
+                        <?php $_SESSION['payment_failed'] = true; ?>
+                        window.location.href = "status.php";
                     }
                 }
             };
