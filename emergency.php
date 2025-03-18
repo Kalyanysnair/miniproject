@@ -1,639 +1,418 @@
 <?php
-// Place this code at the beginning of your emergency.php file, replacing the existing PHP processing code
-
 session_start();
 include 'connect.php';
 
-// Debug function to check data and queries
-function debug_to_file($data, $title = 'Debug Log') {
-    $log_file = 'debug_log.txt';
-    $log_entry = "=== " . $title . " === " . date('Y-m-d H:i:s') . " ===\n";
-    
-    if (is_array($data) || is_object($data)) {
-        $log_entry .= print_r($data, true);
-    } else {
-        $log_entry .= $data;
-    }
-    
-    $log_entry .= "\n\n";
-    file_put_contents($log_file, $log_entry, FILE_APPEND);
-}
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Log the POST data for debugging
-    debug_to_file($_POST, 'POST Data');
-    
-    // Capture and sanitize form inputs
     $patient_name = !empty($_POST['patient_name']) ? trim($_POST['patient_name']) : null;
     $pickup_location = !empty($_POST['pickup_location']) ? trim($_POST['pickup_location']) : null;
     $contact_phone = !empty($_POST['contact_phone']) ? trim($_POST['contact_phone']) : null;
     $ambulance_type = !empty($_POST['ambulance_type']) ? trim($_POST['ambulance_type']) : null;
+    // We'll still collect the booking_date but won't insert it to the database
+    $booking_date = !empty($_POST['booking_date']) ? trim($_POST['booking_date']) : null;
 
-    debug_to_file([
-        'patient_name' => $patient_name,
-        'pickup_location' => $pickup_location,
-        'contact_phone' => $contact_phone,
-        'ambulance_type' => $ambulance_type
-    ], 'Sanitized Input');
-
-    // Validate required fields
     if (empty($patient_name) || empty($pickup_location) || empty($contact_phone) || empty($ambulance_type)) {
-        echo "<div class='alert alert-danger'>All fields (Patient Name, Pickup Location, Contact Phone, and Ambulance Type) are required.</div>";
-        debug_to_file("Validation Error: Missing required fields", 'Error');
-    } else {
-        // Set default values for other fields
-        $status = 'Pending';
-        $driver_id = null;
-        $user_id = null;
+        die("All fields are required.");
+    }
 
-        try {
-            // Check the connection
-            if ($conn->connect_error) {
-                throw new Exception("Connection failed: " . $conn->connect_error);
-            }
+    // Use the original query that matches your table structure
+    $stmt = $conn->prepare("INSERT INTO tbl_emergency (patient_name, pickup_location, contact_phone, ambulance_type, created_at) VALUES (?, ?, ?, ?, NOW())");
+    
+    if ($stmt) {
+        $stmt->bind_param("ssss", $patient_name, $pickup_location, $contact_phone, $ambulance_type);
+        if ($stmt->execute()) {
+            $stmt->close();
+            $_SESSION['message'] = "Emergency booking successful!";
             
-            // Use a plain query for debugging
-            $sql = "INSERT INTO tbl_emergency 
-                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
-                    VALUES (NULL, '$patient_name', '$pickup_location', '$contact_phone', '$ambulance_type', '$status')";
-            
-            debug_to_file($sql, 'SQL Query');
-            
-            // Execute the query directly for debugging
-            if ($conn->query($sql) === TRUE) {
-                $request_id = $conn->insert_id;
-                debug_to_file("Insert successful. Request ID: $request_id", 'Success');
-                
-                // Store request_id and redirect
-                $_SESSION['pending_request_id'] = $request_id;
-                $_SESSION['message'] = "Your emergency request #$request_id has been submitted. Please sign up to track it.";
-                
-                echo "<script>
-                    alert('Emergency request submitted successfully! Redirecting to signup...');
-                    window.location.href = 'signup.php';
-                </script>";
-                exit();
-            } else {
-                throw new Exception("Error: " . $sql . " - " . $conn->error);
-            }
-        } catch (Exception $e) {
-            debug_to_file($e->getMessage(), 'Exception');
-            echo "<div class='alert alert-danger'>Database Error: " . $e->getMessage() . "</div>";
+        } else {
+            die("Database error: " . $stmt->error);
         }
-
-        $conn->close();
+    } else {
+        die("Database error: " . $conn->error);
     }
 }
 ?>
- <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Emergency Booking</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Booking</title>
 
-        <!-- Google Maps API Key (Replace with your own API key) -->
-        
-        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDo-B6eOHsgGobdykDX7jkMBl8NcEuwZ_k&libraries=places&callback=initMap" async defer></script>
-        <!-- <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script> -->
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
-    
-        <!-- Stylesheets -->
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-        <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-        <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-        <link href="assets/vendor/aos/aos.css" rel="stylesheet">
-        <link href="assets/css/main.css" rel="stylesheet">
+    <!-- Bootstrap -->
+    <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/main.css" rel="stylesheet">
 
-        <style>
-          #map {
-            height: 300px; /* Ensure the map has a height */
-            width: 100%;
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            background-image: url('assets/assets/img//template/Groovin/hero-carousel/ambulance2.jpg');
+            background-size: cover;
+            background-position: center;
         }
-        .dropdown-options {
+        #map {
+            height: 300px;
+            width: 100%;
+            margin-bottom: 15px;
+            display: none; /* Initially hidden */
+        }
+        .form-container {
+            background-color: rgba(229, 229, 229, 0.72);
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            margin-top: 90px; /* Add space at the top to push the container downwards */
+            margin-left: auto; /* Center horizontally */
+            margin-right: auto; /* Center horizontally */
+            max-width: 800px;
+        }
+        .validation-message {
+            font-size: 0.85em;
+            color: #dc3545;
             display: none;
         }
-        .btn-warning {
-            background: rgb(208, 13, 13);
-            color: #fff;
+        .input-invalid {
+            border: 1px solid #dc3545;
         }
-        .btn-warning:hover {
-            background: rgb(243, 119, 18);
-            opacity: 0.9;
-            transform: scale(1.05);
+        .input-valid {
+            border: 1px solid #28a745;
         }
-        .btn-custom {
-            width: 100%;
-            font-size: 18px;
+        .success-message {
+            background-color: rgba(40, 167, 69, 0.8);
+            color: white;
             padding: 15px;
-            margin-top: 15px;
-            border-radius: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            transition: 0.3s ease-in-out;
-        }
-       
-
-        .validation-error {
-            color: red;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-
-        input:invalid, select:invalid {
-            border-color: red;
-        }
-
-        input:focus:invalid, select:focus:invalid {
-            box-shadow: 0 0 3px red;
-        }
-
-        .success-validation {
-            border-color: green !important;
-        }
-
-        .emergency-alert {
-            background-color: rgba(255, 0, 0, 0.1);
-            border-left: 4px solid red;
-            padding: 15px;
+            border-radius: 5px;
             margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
         }
-
-        /* Add loading indicator styles */
-        .loading {
-            position: relative;
-        }
-
-        .loading:after {
-            content: "";
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(0, 0, 0, 0.2);
-            border-top-color: #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: translateY(-50%) rotate(360deg); }
-        }
-
-        .form-container {
-            background-color: rgba(151, 147, 147, 0.5); /* Background color for the box */
-            border-radius: 10px; /* Rounded corners */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Shadow effect */
-            padding: 20px; /* Inner padding */
-            margin: auto; /* Center align */
-            max-width: 800px; /* Limit width of the form */
-        }
-        .form-container h2 {
-            text-align: center; /* Center the heading */
-        }  
-            .btn-warning {
-        background:rgb(208, 13, 13);
-        color: #fff;
-        }
-
-        .btn-warning:hover {
-        background:rgb(243, 119, 18);
-        opacity: 0.9;
-        transform: scale(1.05);
-        }
-            
-            
-            .dropdown-options {
-                display: none;
-            }
-
-            .header,
-            .btn-getstarted {
-                background-color:rgb(72, 78, 72); /* Green matching header */
-                color: white;
-            }
-
-            .btn-primary {
-                background-color:rgb(72, 194, 76); /* Green for buttons */
-                border: none;
-            }
-
-            .btn-primary:hover {
-                background-color: #45a049;
-            }
-            
-        ::placeholder {
-            color: green; /* Change placeholder color to green */
-            opacity: 1; /* Ensure the placeholder is fully visible */
-        }
-        
-        /* For input fields specifically */
-        input::placeholder {
-            color: green;
-        }
-
-        /* Optional: For select and other form elements, if needed */
-        select::placeholder {
-            color: green;
-        }
-        .form-container {
-            background-color:rgba(151, 147, 147, 0.5); /* Background color for the box */
-            border-radius: 10px; /* Rounded corners */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Shadow effect */
-            padding: 20px; /* Inner padding */
-            margin: auto; /* Center align */
-            max-width: 800px; /* Limit width of the form */
-        }
-        .form-container h2 {
-            text-align: center; /* Center the heading */
-        }
-
-        </style>
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-
-    <!-- Favicons -->
-    <link href="assets/img/favicon.png" rel="icon">
-    <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
-
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com" rel="preconnect">
-    <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700;1,900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-
-    <!-- Vendor CSS Files -->
-    <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-    <link href="assets/vendor/aos/aos.css" rel="stylesheet">
-    <link href="assets/vendor/glightbox/css/glightbox.min.css" rel="stylesheet">
-    <link href="assets/vendor/swiper/swiper-bundle.min.css" rel="stylesheet">
-
-    <!-- Main CSS File -->
-    <link href="assets/css/main.css" rel="stylesheet">
-    <style>
-        .error
-        {
-            color:red;
-        }
-        </style>
-    </head>
-    <body>
-
+    </style>
+</head>
+<body>
     <?php include 'header.php'; ?>
-    
-    <?php
-    // Initialize error variables
-    $nameErr = $emailErr = $dobErr = $mobileErr = $genderErr = $passwordErr = "";
-    $name = $email = $dob = $mobile = $gender = $password = "";
 
-    // Validate inputs after form submission
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        // Name validation
-        if (empty($_POST["name"])) {
-            $nameErr = "Name is required";
-        } else {
-            $name = test_input($_POST["name"]);
-            if (!preg_match("/^[a-zA-Z-' ]*$/", $name)) {
-                $nameErr = "Only letters and white space allowed";
-            }
-        }
-
-        // Mobile validation
-        if (empty($_POST["contact_phone"])) {
-            $mobileErr = "Mobile number is required";
-        } else {
-            $mobile = test_input($_POST["contact_phone"]);
-            if (!preg_match("/^[6-9]\d{9}$/", $mobile)) {
-                $mobileErr = "Invalid mobile number, must be 10 digits";
-            }
-        }
-
-        
-    }
-
-    // Function to sanitize input
-    function test_input($data) {
-        $data = trim($data);
-        $data = stripslashes($data);
-        $data = htmlspecialchars($data);
-        return $data;
-    }
-    ?>
-<section id="hero" class="hero section dark-background">
-<div id="hero-carousel" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="5000">
-    <div class="carousel-item active">
-    <img src="assets/assets/img/template/Groovin/hero-carousel/road.jpg" alt="" class="hero-image">
-    <div class="carousel-container">
-        <div class="container">
-<!-- Emergency Booking Form -->
-
-
-<div class="container mt-5">
-    <div class="form-container">
-        <h2 style="color:red">Emergency Booking </h2><br>
-        <form method="post" class="php-email-form" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
-            <div class="row gy-4">
-                <!-- Patient/Booker Name -->
-                <div class="col-md-6">
-                    <b>Patient's/Booker Name</b>
-                    <input type="text" name="patient_name" class="form-control" placeholder="Name of Patient/Booker" required>
-                    <!-- <span class="error">*<?php echo $nameErr; ?></span> -->
-                </div>
-                
-                
-                <!-- Location Input Method Selection -->
-                <div class="col-md-6">
-                                        <label for="location-method"><b>Select Location Input Method</b></label>
-                                        <select id="location-method" class="form-control" onchange="showLocationOptions()" required>
-                                            <option value="">Choose an option</option>
-                                            <option value="current">Share Current Location</option>
-                                            <option value="map">Use Google Maps</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Current Location -->
-                                    <div id="current-location" class="dropdown-options col-md-12">
-                                        <!-- <button type="button" class="btn btn-primary mt-2" onclick="getCurrentLocation()">Use Current Location</button> -->
-                                        <button type="button" class="btn btn-primary mt-2" onclick="showLocationOptions()">Use Current Location</button>
-                                        <input type="text" id="current-location-input" class="form-control mt-2" readonly>
-                                    </div>
-
-                                    <!-- Google Maps Input -->
-                                    <div id="map-location" class="dropdown-options col-md-12">
-                                        <input type="text" id="map-input" class="form-control mt-2" placeholder="Search Location">
-                                        <div id="map"></div>
-                                    </div>
-
-                                    <!-- Hidden Field to Store Pickup Location (Sent to DB) -->
-                                    <input type="hidden" id="pickup_location" name="pickup_location">
-
-
-
-                <!-- Type of Ambulance -->
-                <div class="col-md-6">
-                    <b>Ambulance Type</b>
-                    <select name="ambulance_type" class="form-control" required>
-                        <option value="">Select Ambulance Type</option>
-                        <option value="Basic">Basic Ambulance Service</option>
-                        <option value="Advanced">Advanced Life Support </option>
-                        <option value="Neonatal">Critical Care Ambulance</option>
-                        <option value="Neonatal">Neonatal Ambulance</option>
-                        <option value="Bariatric">Bariatric Ambulance</option> 
-                    </select>
-                </div>
-
-                <!-- Phone Number -->
-                <div class="col-md-6">
-                    <b>Phone Number</b>
-                    <input type="tel" name="contact_phone" class="form-control" placeholder="Phone Number" required>
-                    
-                </div>
-                <!-- Date (Auto-filled with Current Date) -->
-                <div class="col-md-12">
-                    <b>Date</b>
-                    <input type="date" name="date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
-                </div>
-
-                <!-- Time (Auto-filled with Current Time) -->
-                <!-- <div class="col-md-6">
-                    <b>Time</b>
-                    <input type="time" name="time" class="form-control" value="<?php echo date('H:i'); ?>" required>
-                </div> -->
-
-                <!-- Submit Button -->
-                <div class="col-md-12 text-center">
-                    <button type="submit" class="btn btn-primary">Book Now</button>
-                    <a href="tel:+1234567890" class="btn btn-warning btn-custom">📞 Call Ambulance</a>
-                </div>
+    <div class="container mt-5">
+        <div class="form-container">
+            <!-- Success Message Display -->
+            <div id="successMessage" class="success-message">
+                Emergency booking successful!
             </div>
-        </form>
+            
+            <h1 style="color:red; text-align:center"><b>Emergency Booking</b></h1>
+            <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="emergencyForm">
+                <!-- First Row -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Patient's/Booker Name</label>
+                        <input type="text" name="patient_name" id="patient_name" class="form-control" required>
+                        <div id="patient_name_validation" class="validation-message">Please enter a valid name (minimum 2 characters)</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Pickup Location</label>
+                        <input type="text" id="pickup_location" name="pickup_location" class="form-control" required readonly>
+                        <div id="pickup_location_validation" class="validation-message">Pickup location is required</div>
+                    </div>
+                </div>
+
+                <!-- Location Options -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="location_option" id="current_location" value="current" checked>
+                            <label class="form-check-label" for="current_location">
+                                Use Current Location
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="location_option" id="choose_map" value="map">
+                            <label class="form-check-label" for="choose_map">
+                                Choose from Map
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Section (initially hidden) -->
+                <div id="map"></div>
+
+
+                <!-- Second Row -->
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Ambulance Type</label>
+                        <select name="ambulance_type" id="ambulance_type" class="form-control" required>
+                            <option value="">Select ambulance type</option>
+                            <option value="Basic">Basic Ambulance Service</option>
+                            <option value="Advanced">Advanced Life Support</option>
+                            <option value="Critical">Critical Care Ambulance</option>
+                            <option value="Neonatal">Neonatal Ambulance</option>
+                            <option value="Bariatric">Bariatric Ambulance</option>
+                        </select>
+                        <div id="ambulance_type_validation" class="validation-message">Please select an ambulance type</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Phone Number</label>
+                        <input type="tel" name="contact_phone" id="contact_phone" class="form-control" required>
+                        <div id="contact_phone_validation" class="validation-message">Please enter a valid 10-digit phone number</div>
+                    </div>
+                </div>
+                 
+                <!-- Date Field (Full Width) -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <label>Date</label>
+                        <input type="date" name="booking_date" id="booking_date" class="form-control" required>
+                        <div id="booking_date_validation" class="validation-message">Please select a valid date</div>
+                    </div>
+                </div>
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-danger mt-3" id="submitBtn">Book Now</button>
+            </form>
+        </div>
     </div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<section>
-<script>
-    // Add this JavaScript code at the end of your HTML file, before the closing </body> tag
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get form elements
-        const form = document.querySelector('.php-email-form');
-        const patientNameInput = document.querySelector('input[name="patient_name"]');
-        const phoneInput = document.querySelector('input[name="contact_phone"]');
-        const ambulanceTypeSelect = document.querySelector('select[name="ambulance_type"]');
-        const locationMethodSelect = document.getElementById('location-method');
-        
-        // Error message display function
-        function showError(element, message) {
-            // Remove any existing error message
-            const existingError = element.parentElement.querySelector('.validation-error');
-            if (existingError) existingError.remove();
+    <!-- JavaScript for Map Integration and Validation -->
+    <script>
+        // Initialize map but don't show it yet
+        var map = L.map('map').setView([10.8505, 76.2711], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        var marker;
+
+        // Set today's date as default
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('booking_date').value = today;
             
-            // Create and add new error message
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'validation-error';
-            errorDiv.style.color = 'red';
-            errorDiv.style.fontSize = '14px';
-            errorDiv.style.marginTop = '5px';
-            errorDiv.innerText = message;
+            // Initially try to get current location since that's the default option
+            if (document.getElementById('current_location').checked) {
+                getCurrentLocation();
+            }
             
-            element.parentElement.appendChild(errorDiv);
-            element.style.borderColor = 'red';
+            // Set up form validation
+            setupValidation();
+            
+            // Check for success message in URL params (for AJAX form submission)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('success') === 'true') {
+                showSuccessMessage();
+            }
+            
+            // Check for PHP session success message
+            <?php if(isset($_SESSION['message'])): ?>
+                showSuccessMessage();
+                <?php unset($_SESSION['message']); ?>
+            <?php endif; ?>
+        });
+
+        // Show success message function
+        function showSuccessMessage() {
+            const successMsg = document.getElementById('successMessage');
+            successMsg.style.display = 'block';
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+            }, 5000);
         }
-        
-        // Clear error display function
-        function clearError(element) {
-            const existingError = element.parentElement.querySelector('.validation-error');
-            if (existingError) existingError.remove();
-            element.style.borderColor = '';
-        }
-        
-        // Validate patient name
-        patientNameInput.addEventListener('input', function() {
-            if (this.value.trim() === '') {
-                showError(this, 'Patient/Booker name is required');
-            } else if (! /^[A-Za-z\s]{3,50}$/.test(this.value)) {
-                showError(this, 'Name should contain only letters and spaces');
-            } else {
-                clearError(this);
-            }
-        });
-        
-        // Validate phone number
-        phoneInput.addEventListener('input', function() {
-            if (this.value.trim() === '') {
-                showError(this, 'Phone number is required');
-            } else if (! /^[6-9]\d{9}$/.test(this.value)) {
-                showError(this, 'Phone number must be 10 digits');
-            } else {
-                clearError(this);
-            }
-        });
-        
-        // Validate ambulance type selection
-        ambulanceTypeSelect.addEventListener('change', function() {
-            if (this.value === '') {
-                showError(this, 'Please select an ambulance type');
-            } else {
-                clearError(this);
-            }
-        });
-        
-        // Validate location method
-        locationMethodSelect.addEventListener('change', function() {
-            if (this.value === '') {
-                showError(this, 'Please select a location input method');
-            } else {
-                clearError(this);
-            }
-        });
-        
-        // Form submission validation
-        form.addEventListener('submit', function(event) {
-            let hasErrors = false;
-            
-            // Check patient name
-            if (patientNameInput.value.trim() === '') {
-                showError(patientNameInput, 'Patient/Booker name is required');
-                hasErrors = true;
-            }
-            
-            // Check phone number
-            if (phoneInput.value.trim() === '') {
-                showError(phoneInput, 'Phone number is required');
-                hasErrors = true;
-            } else if (! /^[6-9]\d{9}$/.test(phoneInput.value)) {
-                showError(phoneInput, 'Phone number must be 10 digits');
-                hasErrors = true;
-            }
-            
-            // Check ambulance type
-            if (ambulanceTypeSelect.value === '') {
-                showError(ambulanceTypeSelect, 'Please select an ambulance type');
-                hasErrors = true;
-            }
-            
-            // Check if location is provided
-            const pickupLocation = document.getElementById('pickup_location').value;
-            if (!pickupLocation) {
-                showError(locationMethodSelect, 'Please select and confirm a pickup location');
-                hasErrors = true;
-            }
-            
-            // Prevent form submission if there are errors
-            if (hasErrors) {
-                event.preventDefault();
-            }
-        });
-    });
-        let map, marker, autocomplete;
 
-        function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 9.5280, lng: 76.8227 }, // Default center (adjustable)
-                zoom: 12
-            });
-
-            const input = document.getElementById("map-input");
-            autocomplete = new google.maps.places.Autocomplete(input);
-            autocomplete.setFields(["geometry", "formatted_address"]);
-
-            // Add marker when a place is selected
-            autocomplete.addListener("place_changed", () => {
-                const place = autocomplete.getPlace();
-                if (!place.geometry) {
-                    alert("No details available for input: '" + place.name + "'");
-                    return;
+        // Location option change handler
+        document.querySelectorAll('input[name="location_option"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                if (this.value === 'current') {
+                    document.getElementById('map').style.display = 'none';
+                    getCurrentLocation();
+                } else if (this.value === 'map') {
+                    document.getElementById('map').style.display = 'block';
+                    // Need to invalidate size after showing the map
+                    setTimeout(function() {
+                        map.invalidateSize();
+                    }, 100);
                 }
+            });
+        });
 
-                // Get latitude and longitude from selected place
-                const lat = place.geometry.location.lat();
-                const lng = place.geometry.location.lng();
-                const formattedAddress = place.formatted_address;
+        // Function to get the place name based on coordinates
+        function getPlaceName(lat, lng) {
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('pickup_location').value = data.display_name;
+                    validateField('pickup_location');
+                    
+                    // If map option was chosen, hide the map after selection
+                    if (document.getElementById('choose_map').checked) {
+                        document.getElementById('map').style.display = 'none';
+                    }
+                })
+                .catch(error => console.error("Error fetching location:", error));
+        }
 
-                // Update form inputs
-                document.getElementById("pickup_location").value = `${lat}, ${lng}`;
-                document.getElementById("map-input").value = formattedAddress; // Show formatted address in input field
+        // Click on map to set the location
+        map.on('click', function(e) {
+            if (marker) map.removeLayer(marker);
+            marker = L.marker(e.latlng).addTo(map);
+            getPlaceName(e.latlng.lat, e.latlng.lng);
+        });
 
-                // Update map
-                map.setCenter(place.geometry.location);
-                if (marker) marker.setMap(null); // Remove existing marker
-                marker = new google.maps.Marker({
-                    position: place.geometry.location,
-                    map: map
-                });
+        // Get current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        let lat = position.coords.latitude;
+                        let lng = position.coords.longitude;
+                        map.setView([lat, lng], 13);
+                        if (marker) map.removeLayer(marker);
+                        marker = L.marker([lat, lng]).addTo(map);
+                        getPlaceName(lat, lng);
+                    },
+                    (error) => {
+                        alert("Error getting location: " + error.message);
+                    }
+                );
+            } else {
+                alert("Geolocation not supported.");
+            }
+        }
 
-                console.log("Selected Location: ", formattedAddress, lat, lng);
+        // Live validation setup
+        function setupValidation() {
+            // Patient Name validation
+            document.getElementById('patient_name').addEventListener('input', function() {
+                validateField('patient_name');
             });
 
-            // Add click event listener to the map
-            map.addListener("click", (event) => {
-                const lat = event.latLng.lat();
-                const lng = event.latLng.lng();
+            // Phone validation
+            document.getElementById('contact_phone').addEventListener('input', function() {
+                validateField('contact_phone');
+            });
 
-                // Update form inputs
-                document.getElementById("pickup_location").value = `${lat}, ${lng}`;
-                document.getElementById("map-input").value = `Lat: ${lat}, Lng: ${lng}`;
+            // Ambulance type validation
+            document.getElementById('ambulance_type').addEventListener('change', function() {
+                validateField('ambulance_type');
+            });
+            
+            // Date validation
+            document.getElementById('booking_date').addEventListener('change', function() {
+                validateField('booking_date');
+            });
 
-                // Update map
-                if (marker) marker.setMap(null); // Remove existing marker
-                marker = new google.maps.Marker({
-                    position: event.latLng,
-                    map: map
+            // Form submission
+            document.getElementById('emergencyForm').addEventListener('submit', function(event) {
+                let isValid = true;
+                
+                // Validate all fields
+                ['patient_name', 'pickup_location', 'contact_phone', 'ambulance_type', 'booking_date'].forEach(function(field) {
+                    if (!validateField(field)) {
+                        isValid = false;
+                    }
                 });
-
-                console.log("Clicked Location: ", lat, lng);
+                
+                if (!isValid) {
+                    event.preventDefault();
+                    return false;
+                }
+                
+                // Optional: AJAX submission instead of form redirect
+                // Uncomment this section and comment out the return true if you want to use AJAX
+                /*
+                event.preventDefault();
+                
+                const formData = new FormData(this);
+                
+                fetch('<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.text())
+                .then(data => {
+                    // Show success message
+                    showSuccessMessage();
+                    
+                    // Reset form
+                    document.getElementById('emergencyForm').reset();
+                    
+                    // Set today's date again
+                    document.getElementById('booking_date').value = new Date().toISOString().split('T')[0];
+                    
+                    // Clear location
+                    document.getElementById('pickup_location').value = '';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('There was an error submitting your booking. Please try again.');
+                });
+                */
+                
+                return true;
             });
         }
 
-        function getCurrentLocation() { 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                const latLng = new google.maps.LatLng(lat, lng);
-
-                // Store in hidden field for form submission
-                document.getElementById("pickup_location").value = `${lat}, ${lng}`;
-                document.getElementById("current-location-input").value = `Lat: ${lat}, Lng: ${lng}`;
-
-                // Update map
-                map.setCenter(latLng);
-                if (marker) marker.setMap(null); // Remove existing marker
-                marker = new google.maps.Marker({
-                    position: latLng,
-                    map: map
-                });
-
-                console.log("Current Location: ", lat, lng);
-            },
-            (error) => {
-                alert("Error getting current location: " + error.message);
-                console.error("Geolocation error:", error);
+        // Field validation function
+        function validateField(fieldId) {
+            const field = document.getElementById(fieldId);
+            const validationMsg = document.getElementById(`${fieldId}_validation`);
+            let isValid = true;
+            
+            // Reset classes
+            field.classList.remove('input-valid', 'input-invalid');
+            if (validationMsg) validationMsg.style.display = 'none';
+            
+            switch(fieldId) {
+                case 'patient_name':
+                    if (field.value.trim().length < 2) {
+                        isValid = false;
+                    }
+                    break;
+                    
+                case 'pickup_location':
+                    if (field.value.trim() === '') {
+                        isValid = false;
+                    }
+                    break;
+                    
+                case 'contact_phone':
+                    const phoneRegex = /^\d{10}$/;
+                    if (!phoneRegex.test(field.value.trim())) {
+                        isValid = false;
+                    }
+                    break;
+                    
+                case 'ambulance_type':
+                    if (field.value === '') {
+                        isValid = false;
+                    }
+                    break;
+                    
+                case 'booking_date':
+                    const selectedDate = new Date(field.value);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (isNaN(selectedDate.getTime()) || selectedDate < today) {
+                        isValid = false;
+                    }
+                    break;
             }
-        );
-    } else {
-        alert("Geolocation is not supported by your browser.");
-    }
-}
-function showLocationOptions() {
-            const method = document.getElementById("location-method").value;
-            document.querySelectorAll(".dropdown-options").forEach(option => option.style.display = "none");
-
-            if (method === "current") {
-                document.getElementById("current-location").style.display = "block";
-                getCurrentLocation(); // Automatically get current location when this option is selected
+            
+            if (isValid) {
+                field.classList.add('input-valid');
+            } else {
+                field.classList.add('input-invalid');
+                if (validationMsg) validationMsg.style.display = 'block';
             }
-            if (method === "map") {
-                document.getElementById("map-location").style.display = "block";
-            }
+            
+            return isValid;
         }
     </script>
-
-
-    </body>
-    </html>
+</body>
+</html>

@@ -414,3 +414,159 @@ INSERT INTO tbl_emergency
 === Success === 2025-03-12 07:39:53 ===
 Insert successful. Request ID: 52
 
+=== POST Data === 2025-03-18 04:34:13 ===
+Array
+(
+    [patient_name] => Sia
+    [pickup_location] => 9.5277266, 76.8228152
+    [ambulance_type] => Neonatal
+    [contact_phone] => 7736783189
+    [date] => 2025-03-18
+)
+
+
+=== Sanitized Input === 2025-03-18 04:34:13 ===
+Array
+(
+    [patient_name] => Sia
+    [pickup_location] => 9.5277266, 76.8228152
+    [contact_phone] => 7736783189
+    [ambulance_type] => Neonatal
+)
+
+
+=== SQL Query === 2025-03-18 04:34:13 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Sia', '9.5277266, 76.8228152', '7736783189', 'Neonatal', 'Pending')
+
+=== Success === 2025-03-18 04:34:13 ===
+Insert successful. Request ID: 57
+
+=== POST Data === 2025-03-18 05:45:19 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 10.27114072805982, 76.29455566406251
+    [ambulance_type] => Basic
+    [contact_phone] => 9778237180
+    [date] => 2025-03-18
+)
+
+
+=== Sanitized Input === 2025-03-18 05:45:19 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 10.27114072805982, 76.29455566406251
+    [contact_phone] => 9778237180
+    [ambulance_type] => Basic
+)
+
+
+=== SQL Query === 2025-03-18 05:45:19 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Nimal', '10.27114072805982, 76.29455566406251', '9778237180', 'Basic', 'Pending')
+
+=== Success === 2025-03-18 05:45:19 ===
+Insert successful. Request ID: 58
+
+=== POST Data === 2025-03-18 05:46:50 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 9.621331023195424, 76.56921386718751
+    [ambulance_type] => Basic
+    [contact_phone] => 9778237180
+    [date] => 2025-03-18
+)
+
+
+=== Sanitized Input === 2025-03-18 05:46:50 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 9.621331023195424, 76.56921386718751
+    [contact_phone] => 9778237180
+    [ambulance_type] => Basic
+)
+
+
+=== SQL Query === 2025-03-18 05:46:50 ===
+INSERT INTO tbl_emergency 
+                    (userid, patient_name, pickup_location, contact_phone, ambulance_type, status) 
+                    VALUES (NULL, 'Nimal', '9.621331023195424, 76.56921386718751', '9778237180', 'Basic', 'Pending')
+
+=== Success === 2025-03-18 05:46:50 ===
+Insert successful. Request ID: 59
+
+=== POST Data === 2025-03-18 07:24:41 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 
+    [ambulance_type] => Basic
+    [contact_phone] => 9778237180
+)
+
+
+=== Sanitized Input === 2025-03-18 07:24:41 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 
+    [contact_phone] => 9778237180
+    [ambulance_type] => Basic
+)
+
+
+=== Error === 2025-03-18 07:24:41 ===
+Validation Error: Missing required fields
+
+=== POST Data === 2025-03-18 07:24:54 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 
+    [ambulance_type] => Basic
+    [contact_phone] => 9778237180
+)
+
+
+=== Sanitized Input === 2025-03-18 07:24:54 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 
+    [contact_phone] => 9778237180
+    [ambulance_type] => Basic
+)
+
+
+=== Error === 2025-03-18 07:24:54 ===
+Validation Error: Missing required fields
+
+=== POST Data === 2025-03-18 07:32:31 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 
+    [ambulance_type] => Basic
+    [contact_phone] => 9778237180
+)
+
+
+=== Sanitized Input === 2025-03-18 07:32:31 ===
+Array
+(
+    [patient_name] => Nimal
+    [pickup_location] => 
+    [contact_phone] => 9778237180
+    [ambulance_type] => Basic
+)
+
+
+=== Error === 2025-03-18 07:32:31 ===
+Validation Error: Missing required fields
+
