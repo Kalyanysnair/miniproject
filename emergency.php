@@ -22,7 +22,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt->execute()) {
             $stmt->close();
             $_SESSION['message'] = "Emergency booking successful!";
-            
+            // Redirect after successful submission
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit();
         } else {
             die("Database error: " . $stmt->error);
         }
@@ -100,10 +102,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <div class="container mt-5">
         <div class="form-container">
+
+
             <!-- Success Message Display -->
             <div id="successMessage" class="success-message">
-                Emergency booking successful!
+                Emergency booking successful!!.Login to your account to view your booking details.
             </div>
+            
             
             <h1 style="color:red; text-align:center"><b>Emergency Booking</b></h1>
             <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="emergencyForm">
@@ -174,8 +179,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <div id="booking_date_validation" class="validation-message">Please select a valid date</div>
                     </div>
                 </div>
-                <!-- Submit Button -->
-                <button type="submit" class="btn btn-danger mt-3" id="submitBtn">Book Now</button>
+                <!-- Submit and Back Buttons -->
+<div class="d-flex justify-content-between">
+    <a href="login.php" class="btn btn-secondary mt-3">Back to Login</a>
+    <button type="submit" class="btn btn-danger mt-3" id="submitBtn">Book Now</button>
+</div>
+
             </form>
         </div>
     </div>
