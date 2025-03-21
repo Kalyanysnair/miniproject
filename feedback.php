@@ -304,8 +304,8 @@ $conn->close();
             </div>
            
             <button type="submit" class="submit-btn">Submit Feedback</button>
-            <!-- <br> -->
-            <!-- <a href="user.php" class="back-btn">Back</a> -->
+            <br> 
+             <a href="user1.php" class="back-btn">Back</a>
 
         </form>
     </div>

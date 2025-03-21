@@ -16,10 +16,40 @@ $request_data = null;
 $error_message = '';
 $success_message = '';
 
+// Function to send SMS using Twilio API
+function sendSMS($phoneNumber, $message) {
+    $account_sid = 'YOUR_TWILIO_ACCOUNT_SID'; // Replace with your Twilio Account SID
+    $auth_token = 'YOUR_TWILIO_AUTH_TOKEN';   // Replace with your Twilio Auth Token
+    $twilio_number = 'YOUR_TWILIO_PHONE_NUMBER'; // Replace with your Twilio phone number
+
+    $url = "https://api.twilio.com/2010-04-01/Accounts/$account_sid/Messages.json";
+
+    $data = [
+        'From' => $twilio_number,
+        'To' => $phoneNumber,
+        'Body' => $message
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($ch, CURLOPT_USERPWD, "$account_sid:$auth_token");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+
+    $result = curl_exec($ch);
+    curl_close($ch);
+
+    return $result;
+}
+
 // Check if form is submitted with correct parameters
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isset($_POST["request_type"]) && $_POST["request_type"] === "palliative") {
     $palliative_id = filter_var($_POST["request_id"], FILTER_VALIDATE_INT);
     $driver_id = $_SESSION["user_id"]; // Get the driver's user ID from session
+    $user_phone = $_POST["user_phone"];
+    $user_name = $_POST["user_name"];
 
     if ($palliative_id === false || $palliative_id === 0) {
         $error_message = "Invalid request ID.";
@@ -45,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                     SET status = 'Approved', driver_id = ?
                     WHERE palliativeid = ? AND status = 'Pending'
                 ");
-                
+
                 if ($update_stmt === false) {
                     throw new Exception("Failed to prepare update statement: " . $mysqli->error);
                 }
@@ -54,7 +84,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                 $update_stmt->execute();
 
                 if ($update_stmt->affected_rows > 0) {
-                    // Fetch request details for email
+                    // Fetch request details for email and SMS
                     $fetch_stmt = $mysqli->prepare("
                         SELECT 
                             u.username AS patient_name, 
@@ -66,7 +96,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                         LEFT JOIN tbl_user u ON p.userid = u.userid 
                         WHERE p.palliativeid = ?
                     ");
-                    
+
                     if ($fetch_stmt === false) {
                         throw new Exception("Failed to prepare fetch statement: " . $mysqli->error);
                     }
@@ -78,14 +108,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                     if ($result->num_rows > 0) {
                         $request_data = $result->fetch_assoc();
 
+                        // Send SMS notification
+                        $sms_message = "Hello $user_name, your palliative care request (ID: $palliative_id) has been accepted. Our driver will assist you shortly.";
+                        $sms_result = sendSMS($user_phone, $sms_message);
+
+                        if ($sms_result) {
+                            $success_message = "Request accepted successfully.";
+                        } else {
+                            $error_message = "Request accepted successfully. SMS notification failed.";
+                        }
+
                         // Send Email Notification
                         $mail = new PHPMailer(true);
                         try {
                             $mail->isSMTP();
                             $mail->Host = 'smtp.gmail.com';
                             $mail->SMTPAuth = true;
-                            $mail->Username = 'kalyanys2004@gmail.com';
-                            $mail->Password = 'ooqs zxti mult tlcb';
+                            $mail->Username = 'kalyanys2004@gmail.com'; // Replace with your email
+                            $mail->Password = 'ooqs zxti mult tlcb'; // Replace with your email password
                             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                             $mail->Port = 587;
 
@@ -109,10 +149,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                             ";
 
                             $mail->send();
-                            $success_message = "Request accepted successfully. Confirmation email sent to patient.";
+                            $success_message .= " Email confirmation sent.";
                         } catch (Exception $e) {
                             error_log("Email Error: " . $mail->ErrorInfo);
-                            $success_message = "Request accepted successfully, but email notification failed.";
+                            $success_message .= " Email notification failed.";
                         }
                     }
                 } else {
@@ -133,9 +173,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
     $error_message = "Invalid request. Please try again.";
 }
 ?>
-
-<!-- Rest of your HTML code remains the same -->
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -240,82 +277,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
     </div>
 </header>
 
-    <div class="container-box">
-        <h2 class="text-center mb-4">Palliative Request Details</h2>
-        
-        <?php if (isset($error_message) && $error_message): ?>
-            <div class="message error"><?php echo htmlspecialchars($error_message); ?></div>
-        <?php endif; ?>
-        
-        <?php if (isset($success_message) && $success_message): ?>
-            <div class="message success"><?php echo htmlspecialchars($success_message); ?></div>
-        <?php endif; ?>
+<div class="container-box">
+    <h2 class="text-center mb-4">Palliative Request Details</h2>
 
-        <?php if (isset($request_data) && $request_data): ?>
-            <table class="details-table">
-                <tr>
-                    <td><strong>Patient Name:</strong></td>
-                    <td><?php echo htmlspecialchars($request_data['patient_name'] ?? '-'); ?></td>
-                </tr>
-                <tr>
-                    <td><strong>Contact Phone:</strong></td>
-                    <td><?php echo htmlspecialchars($request_data['contact_phone'] ?? '-'); ?></td>
-                </tr>
-                <tr>
-                    <td><strong>Pickup Location:</strong></td>
-                    <td><?php echo htmlspecialchars($request_data['pickup_location'] ?? '-'); ?></td>
-                </tr>
-                <tr>
-                        <td><strong>Request Time<strong></td>
-                        <td><?php echo htmlspecialchars($request_data['created_at'] ?? '-'); ?></td>
-                    </tr>
-            </table>
-        <?php else: ?>
-            <p class="text-center">No request details available.</p>
-        <?php endif; ?>
-        <div class="btn-container">
-            <a href="driver.php" class="dashboard-btn">Return to Dashboard</a>
-        </div>
+    <?php if (isset($error_message) && $error_message): ?>
+        <div class="message error"><?php echo htmlspecialchars($error_message); ?></div>
+    <?php endif; ?>
+
+    <?php if (isset($success_message) && $success_message): ?>
+        <div class="message success"><?php echo htmlspecialchars($success_message); ?></div>
+    <?php endif; ?>
+
+    <?php if (isset($request_data) && $request_data): ?>
+        <table class="details-table">
+            <tr>
+                <td><strong>Patient Name:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['patient_name'] ?? '-'); ?></td>
+            </tr>
+            <tr>
+                <td><strong>Contact Phone:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['contact_phone'] ?? '-'); ?></td>
+            </tr>
+            <tr>
+                <td><strong>Pickup Location:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['pickup_location'] ?? '-'); ?></td>
+            </tr>
+            <tr>
+                <td><strong>Request Time:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['created_at'] ?? '-'); ?></td>
+            </tr>
+        </table>
+    <?php else: ?>
+        <p class="text-center">No request details available.</p>
+    <?php endif; ?>
+    <div class="btn-container">
+        <a href="driver.php" class="dashboard-btn">Return to Dashboard</a>
     </div>
+</div>
 
-    <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mobile navigation toggle
-        const mobileNavShow = document.querySelector('.mobile-nav-show');
-        const mobileNavHide = document.querySelector('.mobile-nav-hide');
-        const navbar = document.querySelector('#navbar');
-
-        if (mobileNavShow && mobileNavHide && navbar) {
-            mobileNavShow.addEventListener('click', function() {
-                navbar.classList.add('navbar-mobile');
-                mobileNavShow.classList.add('d-none');
-                mobileNavHide.classList.remove('d-none');
-            });
-
-            mobileNavHide.addEventListener('click', function() {
-                navbar.classList.remove('navbar-mobile');
-                mobileNavShow.classList.remove('d-none');
-                mobileNavHide.classList.add('d-none');
-            });
-        }
-
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                const href = this.getAttribute('href');
-                if (href !== "#" && href.startsWith('#')) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth'
-                        });
-                    }
-                }
-            });
-        });
-    });
-    </script>
+<script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

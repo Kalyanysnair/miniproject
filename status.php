@@ -13,6 +13,46 @@ $payment_amount = 0;
 $payment_failed = false;
 $error_message = "";
 
+// Handle cancel request
+if (isset($_POST['cancel_request'])) {
+    $request_id = $_POST['request_id'];
+    $booking_type = $_POST['booking_type'];
+    
+    try {
+        // Determine which table to update based on booking type
+        switch ($booking_type) {
+            case 'emergency':
+                $query = "UPDATE tbl_emergency SET status = 'Cancelled' WHERE request_id = ? AND userid = ?";
+                break;
+            case 'prebooking':
+                $query = "UPDATE tbl_prebooking SET status = 'Cancelled' WHERE prebookingid = ? AND userid = ?";
+                break;
+            case 'palliative':
+                $query = "UPDATE tbl_palliative SET status = 'Cancelled' WHERE palliativeid = ? AND userid = ?";
+                break;
+            default:
+                throw new Exception("Invalid booking type");
+        }
+        
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("ii", $request_id, $userid);
+        $stmt->execute();
+        
+        if ($stmt->affected_rows > 0) {
+            $_SESSION['cancel_success'] = true;
+        } else {
+            $_SESSION['cancel_failed'] = true;
+        }
+    } catch (Exception $e) {
+        $_SESSION['cancel_failed'] = true;
+        error_log("Cancellation error: " . $e->getMessage());
+    }
+    
+    // Redirect to prevent form resubmission
+    header("Location: status.php");
+    exit();
+}
+
 if (isset($_SESSION['payment_success']) && $_SESSION['payment_success'] === true) {
     $payment_success = true;
     $payment_amount = isset($_SESSION['payment_amount']) ? $_SESSION['payment_amount'] : 0;
@@ -23,6 +63,20 @@ if (isset($_SESSION['payment_success']) && $_SESSION['payment_success'] === true
 if (isset($_SESSION['payment_failed']) && $_SESSION['payment_failed'] === true) {
     $payment_failed = true;
     unset($_SESSION['payment_failed']);
+}
+
+// Handle cancel success/failure messages
+$cancel_success = false;
+$cancel_failed = false;
+
+if (isset($_SESSION['cancel_success']) && $_SESSION['cancel_success'] === true) {
+    $cancel_success = true;
+    unset($_SESSION['cancel_success']);
+}
+
+if (isset($_SESSION['cancel_failed']) && $_SESSION['cancel_failed'] === true) {
+    $cancel_failed = true;
+    unset($_SESSION['cancel_failed']);
 }
 
 try {
@@ -57,11 +111,8 @@ try {
         throw new Exception("User not found.");
     }
 
-    //Debug: Check the fetched name and phone number
     $patient_name = $user['username']; // Assuming 'username' is the user's name
     $contact_phone = $user['phoneno'];
-    // echo "Debug: Fetched name: " . $patient_name . "<br>"; // Debug: Print the fetched name
-    // echo "Debug: Fetched phone number: " . $contact_phone . "<br>"; // Debug: Print the fetched phone number
 
     // Step 2: Fetch emergency bookings using the name and phone number
     $emergency_query = "
@@ -86,14 +137,6 @@ try {
     $stmt->bind_param("i", $userid);
     $stmt->execute();
     $emergency_bookings = $stmt->get_result();
-
-    // Debug: Check if data is fetched
-    if ($emergency_bookings->num_rows === 0) {
-        // $error_message = "No emergency bookings found for the user.";
-        // echo "Debug: No rows found for name: " . $patient_name . " and phone: " . $contact_phone . "<br>"; // Debug: Print if no rows are found
-    } else {
-        // echo "Debug: Rows found: " . $emergency_bookings->num_rows . "<br>"; // Debug: Print the number of rows found
-    }
 
     // Add this before the emergency table HTML
     error_log("Debug Emergency Bookings: User ID = " . $userid);
@@ -164,6 +207,13 @@ try {
     <title>Booking Status</title>
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-database-compat.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -176,43 +226,7 @@ try {
             display: flex;
         }
 
-        /* .sidebar {
-            width: 250px;
-            background: rgba(206, 205, 205, 0.8);
-            color: white;
-            padding: 20px;
-            height: 100vh;
-            position: fixed;
-            margin-top: 80;
-            left: 0;
-        }
-
-        .sidebar h2 {
-            color: #2E8B57;
-            margin-bottom: 20px;
-        }
-
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .sidebar ul li {
-            margin: 15px 0;
-        }
-
-        .sidebar ul li a {
-            color: white;
-            text-decoration: none;
-            font-size: 16px;
-        }
-
-        .sidebar ul li a:hover {
-            color: #2E8B57;
-        } */
-
         .container {
-            /* margin-left: 250px; */
             padding: 20px;
             flex: 1;
         }
@@ -274,10 +288,27 @@ try {
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            margin-right: 5px;
         }
 
         .btn:hover {
             background-color: #3CB371;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0069d9;
         }
 
         .status-badge {
@@ -293,7 +324,7 @@ try {
             color: #856404;
         }
 
-        .status-accepted {
+        .status-accepted, .status-approved {
             background-color: #D4EDDA;
             color: #155724;
         }
@@ -365,26 +396,48 @@ try {
             background-color: #f8d7da;
             border-color: #f5c6cb;
         }
+
+        /* Map container styles */
+        #map-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+        }
+
+        #map-content {
+            position: relative;
+            width: 90%;
+            height: 80%;
+            margin: 5% auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        #close-map {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+            background: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    
-    <!-- <div class="sidebar">
-<div class="user-info"><a href="user1.php">
-    <i class="fas fa-user-circle"></i>
-    <?php echo $_SESSION['username']; ?></a>
-</div>
-
-    <ul class="sidebar-nav">
-        
-        <li><a href="user_profile.php"><i class="fas fa-user"></i>  Profile</a></li>
-        <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
-        <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-    </ul>
-</div> -->
-
-    <!-- Main Content -->
     <div class="container">
         <?php include 'header.php'; ?>
 
@@ -397,6 +450,18 @@ try {
         <?php if ($payment_failed): ?>
             <div class="alert alert-danger" role="alert">
                 Payment failed. Please try again or contact support.
+            </div>
+        <?php endif; ?>
+
+        <?php if ($cancel_success): ?>
+            <div class="alert alert-success" role="alert">
+                Your request has been successfully cancelled.
+            </div>
+        <?php endif; ?>
+
+        <?php if ($cancel_failed): ?>
+            <div class="alert alert-danger" role="alert">
+                Failed to cancel your request. Please try again or contact support.
             </div>
         <?php endif; ?>
 
@@ -416,9 +481,6 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            
-                            <!-- <th>Patient Name</th>
-                            <th>Contact</th> -->
                             <th>Location</th>
                             <th>Ambulance Type</th>
                             <th>Status</th>
@@ -429,9 +491,6 @@ try {
                     <tbody>
                         <?php while ($booking = $emergency_bookings->fetch_assoc()): ?>
                             <tr>
-                                
-                                <!-- <td><?php echo htmlspecialchars($booking['patient_name']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['contact_phone']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['ambulance_type']); ?></td>
                                 <td>
@@ -441,7 +500,19 @@ try {
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                    <?php if ($booking['status'] == 'Pending'): ?>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            <input type="hidden" name="request_id" value="<?php echo (int)$booking['request_id']; ?>">
+                                            <input type="hidden" name="booking_type" value="emergency">
+                                            <button type="submit" name="cancel_request" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel this request?')">
+                                                Cancel
+                                            </button>
+                                        </form>
+                                    <?php elseif ($booking['status'] == 'Accepted' || $booking['status'] == 'Approved'): ?>
+                                        <!-- <button class="btn btn-primary" onclick="trackAmbulance('emergency', <?php echo (int)$booking['request_id']; ?>)">
+                                            Track
+                                        </button> -->
+                                    <?php elseif ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['emergency_' . $booking['request_id']])): ?>
                                             <span class="status-badge status-paid">
                                                 Paid (₹<?php echo number_format($paid_amounts['emergency_' . $booking['request_id']], 2); ?>)
@@ -471,7 +542,6 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <!-- <th>Booking ID</th> -->
                             <th>Pickup Location</th>
                             <th>Destination</th>
                             <th>Service Type</th>
@@ -485,7 +555,6 @@ try {
                     <tbody>
                         <?php while ($booking = $prebookings->fetch_assoc()): ?>
                             <tr>
-                                <!-- <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['destination']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['service_type']); ?></td>
@@ -498,7 +567,19 @@ try {
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                    <?php if ($booking['status'] == 'Pending'): ?>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            <input type="hidden" name="request_id" value="<?php echo (int)$booking['prebookingid']; ?>">
+                                            <input type="hidden" name="booking_type" value="prebooking">
+                                            <button type="submit" name="cancel_request" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel this request?')">
+                                                Cancel
+                                            </button>
+                                        </form>
+                                    <?php elseif ($booking['status'] == 'Accepted' || $booking['status'] == 'Approved'): ?>
+                                        <!-- <button class="btn btn-primary" onclick="trackAmbulance('prebooking', <?php echo (int)$booking['prebookingid']; ?>)">
+                                            Track
+                                        </button> -->
+                                    <?php elseif ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['prebooking_' . $booking['prebookingid']])): ?>
                                             <span class="status-badge status-paid">
                                                 Paid (₹<?php echo number_format($paid_amounts['prebooking_' . $booking['prebookingid']], 2); ?>)
@@ -526,7 +607,6 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <!-- <th>Booking ID</th> -->
                             <th>Address</th>
                             <th>Medical Condition</th>
                             <th>Status</th>
@@ -537,18 +617,28 @@ try {
                     <tbody>
                         <?php while ($booking = $palliative->fetch_assoc()): ?>
                             <tr>
-                                <!-- <td>#<?php echo htmlspecialchars($booking['palliativeid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['address']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['medical_condition']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
                                         <?php echo htmlspecialchars($booking['status']); ?>
                                     </span>
-                                    
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                    <?php if ($booking['status'] == 'Pending'): ?>
+                                        <form method="post" action="" style="display: inline-block;">
+                                            <input type="hidden" name="request_id" value="<?php echo (int)$booking['palliativeid']; ?>">
+                                            <input type="hidden" name="booking_type" value="palliative">
+                                            <button type="submit" name="cancel_request" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel this request?')">
+                                                Cancel
+                                            </button>
+                                        </form>
+                                    <?php elseif ($booking['status'] == 'Accepted' || $booking['status'] == 'Approved'): ?>
+                                        <!-- <button class="btn btn-primary" onclick="trackAmbulance('palliative', <?php echo (int)$booking['palliativeid']; ?>)">
+                                            Track
+                                        </button> -->
+                                    <?php elseif ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['palliative_' . $booking['palliativeid']])): ?>
                                             <span class="status-badge status-paid">
                                                 Paid (₹<?php echo number_format($paid_amounts['palliative_' . $booking['palliativeid']], 2); ?>)
@@ -570,7 +660,32 @@ try {
         </div>
     </div>
 
+    <!-- Map Modal for Tracking -->
+    <div id="map-container">
+        <div id="map-content">
+            <button id="close-map">&times;</button>
+            <div id="estimated-time" style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 5px;"></div>
+            <div id="map"></div>
+        </div>
+    </div>
+
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYYyUORNusV_DVD3senGL0dkEtDpUhjvs",
+            authDomain: "swiftaidtracking.firebaseapp.com",
+            databaseURL: "https://swiftaidtracking-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "swiftaidtracking",
+            storageBucket: "swiftaidtracking.firebasestorage.app",
+            messagingSenderId: "304104708742",
+            appId: "1:304104708742:web:d1e1d833e0286661080f07"
+        };
+
+        // Initialize Firebase
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(firebaseConfig);
+        }
+
         function proceedToPayment(requestId, bookingType) {
             console.log('Request ID:', requestId, 'Booking Type:', bookingType); // Add debug logging
             if (confirm('Do you want to proceed to payment for this completed service?')) {
@@ -580,10 +695,123 @@ try {
             }
         }
 
-        // Refresh the page every 30 seconds to update status
-        setInterval(function() {
-            location.reload();
-        }, 30000);
+        // Initialize map and markers as global variables
+        let map = null;
+        let driverMarker = null;
+        let userMarker = null;
+        let trackingRef = null;
+
+        function trackAmbulance(bookingType, requestId) {
+            // Show map container
+            document.getElementById('map-container').style.display = 'flex';
+            
+            // Initialize map if not already done
+            if (!map) {
+                try {
+                    map = L.map('map').setView([10.1632, 76.6413], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(map);
+                    console.log('Map initialized successfully');
+                } catch (error) {
+                    console.error('Error initializing map:', error);
+                }
+            }
+
+            // Create or update markers
+            if (!driverMarker) {
+                // Use a default marker with custom popup for driver
+                driverMarker = L.marker([0, 0])
+                    .bindPopup('Ambulance Location')
+                    .addTo(map);
+            }
+
+            if (!userMarker) {
+                // Use a default marker with custom popup for user
+                userMarker = L.marker([0, 0])
+                    .bindPopup('Your Location')
+                    .addTo(map);
+            }
+
+            // Get user's current location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    
+                    userMarker.setLatLng([userLat, userLng]).update();
+                    map.setView([userLat, userLng], 13);
+                    userMarker.openPopup();
+                }, error => {
+                    console.error("Error getting location:", error);
+                    alert("Could not get your location. Please enable location services.");
+                });
+            }
+
+            // Stop previous tracking if any
+            if (trackingRef) {
+                trackingRef.off();
+            }
+
+            // Start real-time tracking of driver
+            trackingRef = firebase.database().ref(${bookingType}_${requestId});
+            console.log('Listening for updates at:', ${bookingType}_${requestId});
+
+            trackingRef.on('value', (snapshot) => {
+                console.log('Received Firebase update:', snapshot.val());
+                const data = snapshot.val();
+                if (data && data.latitude && data.longitude) {
+                    console.log('Driver location:', data.latitude, data.longitude);
+                    const driverLat = data.latitude;
+                    const driverLng = data.longitude;
+                    
+                    driverMarker.setLatLng([driverLat, driverLng]).update();
+                    driverMarker.openPopup();
+
+                    // Fit both markers in view
+                    if (userMarker.getLatLng().lat !== 0) {
+                        const bounds = L.latLngBounds([
+                            [driverLat, driverLng],
+                            [userMarker.getLatLng().lat, userMarker.getLatLng().lng]
+                        ]);
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+
+                    // Update estimated time
+                    updateEstimatedTime(driverLat, driverLng, userMarker.getLatLng().lat, userMarker.getLatLng().lng);
+                } else {
+                    console.log('No driver location data available yet');
+                }
+            }, error => {
+                console.error('Firebase error:', error);
+            });
+        }
+
+        // Function to calculate and display estimated arrival time
+        function updateEstimatedTime(driverLat, driverLng, userLat, userLng) {
+            const directionsService = new google.maps.DirectionsService();
+            
+            const request = {
+                origin: new google.maps.LatLng(driverLat, driverLng),
+                destination: new google.maps.LatLng(userLat, userLng),
+                travelMode: 'DRIVING'
+            };
+
+            directionsService.route(request, (result, status) => {
+                if (status === 'OK') {
+                    const duration = result.routes[0].legs[0].duration.text;
+                    document.getElementById('estimated-time').textContent = Estimated arrival time: ${duration};
+                }
+            });
+        }
+
+        // Close map and stop tracking
+        document.getElementById('close-map').addEventListener('click', () => {
+            document.getElementById('map-container').style.display = 'none';
+            if (trackingRef) {
+                trackingRef.off();
+            }
+        });
     </script>
 </body>
 </html>

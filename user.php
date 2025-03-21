@@ -118,15 +118,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             z-index: 1000;
         }
 
-        .sidebar {
+        /* .sidebar {
             width: 250px;
             color: white;
             padding: 20px;
             position: fixed;
             top: 70px;
             bottom: 0;
+            left: 0; */
+            .sidebar {
+            width: 250px;
+            background: rgba(206, 205, 205, 0.36);
+            color: white;
+            padding: 20px;
+            height: calc(100vh - 80px); /* Full height minus header height */
+            position: fixed;
+            top: 80px; /* Same as header height */
             left: 0;
+            overflow-y: auto; /* Add scrollbar if content overflows */
         }
+
+        
 
         .sidebar h2 {
             font-size: 18px;
@@ -156,7 +168,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         /* Form Container Styling */
         .form-container {
-            background: rgba(218, 214, 214, 0.46);
+            background: rgba(235, 231, 231, 0.63);
             border-radius: 10px;
             padding: 70px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
@@ -165,6 +177,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         label {
             font-weight: 500;
+            color: #333;
         }
 
         .form-control {

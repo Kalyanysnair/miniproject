@@ -662,20 +662,25 @@ if (!$driver) {
 
                 <!-- Edit/Save Buttons -->
                 <div class="view-mode">
-                    <button type="button" id="edit-button" class="btn btn-edit">
-                        <i class="bi bi-pencil-fill"></i> Edit Profile
-                    </button>
-                </div>
-                
-                <div class="edit-mode actions">
-                    <button type="submit" name="update_profile" class="btn btn-save">
-                        <i class="bi bi-check-lg"></i> Save Changes
-                        <span class="loading-spinner" id="save-spinner"></span>
-                    </button>
-                    <button type="button" id="cancel-button" class="btn btn-cancel">
-                        <i class="bi bi-x-lg"></i> Cancel
-                    </button>
-                </div>
+                <button type="button" id="edit-button" class="btn btn-edit">
+                    <i class="bi bi-pencil-fill"></i> Edit Profile
+                </button>
+                <button type="button" onclick="window.location.href='driver.php'" class="btn btn-back">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+            </div>
+
+            <div class="edit-mode actions">
+                <button type="submit" name="update_profile" class="btn btn-save">
+                    <i class="bi bi-check-lg"></i> Save Changes
+                    <span class="loading-spinner" id="save-spinner"></span>
+                </button>
+                <button type="button" id="cancel-button" class="btn btn-cancel">
+                    <i class="bi bi-x-lg"></i> Cancel
+                </button>
+               
+            </div>
+
             </form>
         </div>
     </main>

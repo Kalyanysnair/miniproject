@@ -506,19 +506,23 @@ if (!$user) {
 
                 <!-- Edit/Save Buttons -->
                 <div class="view-mode">
-                    <button type="button" id="edit-button" class="btn btn-edit">
-                        <i class="bi bi-pencil"></i> Edit Profile
-                    </button>
-                </div>
-                
-                <div class="edit-mode actions">
-                    <button type="submit" name="update_profile" class="btn btn-save">
-                        <i class="bi bi-check"></i> Save Changes
-                    </button>
-                    <button type="button" id="cancel-button" class="btn btn-cancel">
-                        <i class="bi bi-x"></i> Cancel
-                    </button>
-                </div>
+    <button type="button" id="edit-button" class="btn btn-edit">
+        <i class="bi bi-pencil"></i> Edit Profile
+    </button>
+</div>
+
+<div class="edit-mode actions">
+    <button type="submit" name="update_profile" class="btn btn-save">
+        <i class="bi bi-check"></i> Save Changes
+    </button>
+    <button type="button" id="cancel-button" class="btn btn-cancel">
+        <i class="bi bi-x"></i> Cancel
+    </button>
+    <button type="button" onclick="window.location.href='user1.php'" class="btn btn-back">
+        <i class="bi bi-arrow-left"></i> Back
+    </button>
+</div>
+
             </form>
         </div>
     </main>

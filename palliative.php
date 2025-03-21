@@ -100,7 +100,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .sidebar {
             width: 250px;
-            background: rgba(206, 205, 205, 0.8);
+            background: rgba(206, 205, 205, 0.51);
             color: white;
             padding: 20px;
             height: calc(100vh - 80px); /* Full height minus header height */
@@ -213,29 +213,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             transform: translateY(-2px);
         }
     </style>
-</head>
-<body>
-    <?php include 'header.php'; ?>
+        </head>
+        <body>
+            <?php include 'header.php'; ?>
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-    <div class="user-info"><a href="user1.php">
-    <i class="fas fa-user-circle"></i>
-    <?php echo $_SESSION['username']; ?></a>
-</div>
-        <ul class="sidebar-nav">
-            <li><a href="user_profile.php"><i class="fas fa-user"></i> Profile</a></li>
-            <li><a href="status.php"><i class="fas fa-list"></i> My Bookings</a></li>
-            <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
-            <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-        </ul>
-    </div>
+            <!-- Sidebar -->
+            <div class="sidebar">
+            <div class="user-info"><a href="user1.php">
+            <i class="fas fa-user-circle"></i>
+            <?php echo $_SESSION['username']; ?></a>
+        </div>
+                <ul class="sidebar-nav">
+                    <li><a href="user_profile.php"><i class="fas fa-user"></i> Profile</a></li>
+                    <li><a href="status.php"><i class="fas fa-list"></i> My Bookings</a></li>
+                    <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
+                    <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </div>
 
     <!-- Main Content -->
-    <div class="container">
-        <div class="form-container">
-            <h1 style="color:white">Palliative Care Request</h1>
-            <form method="POST" action="" id="palliativeForm">
+                    <div class="container">
+                        <div class="form-container">
+                            <h1 style="color:white">Palliative Care Request</h1>
+                            <form method="POST" action="" id="palliativeForm">
+                            <?php if (isset($_SESSION['message'])): ?>
+                    <div class="alert alert-success text-center">
+                        <?php 
+                            echo $_SESSION['message']; 
+                            unset($_SESSION['message']); // Remove message after displaying it
+                        ?>
+                    </div>
+                <?php endif; ?>
+
                 <div class="row">
                     <div class="col-md-6 form-group">
                         <label class="form-label">Username</label>
@@ -286,7 +295,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </form>
 
             <div class="text-center mt-3">
-                <a href="javascript:history.back()" class="btn-back">Back</a>
+                <a href="user1.php" class="btn-back">Back</a>
             </div>
         </div>
     </div>

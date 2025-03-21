@@ -39,7 +39,7 @@ try {
         $payment_data = $payment_result->fetch_assoc();
         $_SESSION['payment_success'] = true;
         $_SESSION['payment_amount'] = $payment_data['amount'];
-        header("Location: status.php?payment=success");
+        header("Location: payment_receipt.php?payment_id=" . $razorpay_payment_id);
         exit();
     }
 
@@ -137,8 +137,8 @@ try {
     $_SESSION['payment_success'] = true;
     $_SESSION['payment_amount'] = $amount;
     
-    // Redirect to status page without query parameters
-    header("Location: status.php");
+    // Redirect to receipt page
+    header("Location: payment_receipt.php?payment_id=" . $razorpay_payment_id);
     exit();
 
 } catch (Exception $e) {
@@ -159,6 +159,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Successful</title>
     <style>
+        /* Keep the original styles for fallback */
         * {
             margin: 0;
             padding: 0;
@@ -217,6 +218,12 @@ try {
             background-color: #45a049;
         }
     </style>
+    <script>
+        // Redirect to receipt page
+        window.onload = function() {
+            window.location.href = "payment_receipt.php?payment_id=<?php echo $razorpay_payment_id; ?>";
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -224,7 +231,7 @@ try {
         <h1>Payment Successful!</h1>
         <p>Your payment has been processed successfully.</p>
         <p>Thank you for using our service.</p>
-        <a href="status.php" class="button">View Booking Status</a>
+        <a href="payment_receipt.php?payment_id=<?php echo $razorpay_payment_id; ?>" class="button">View Receipt</a>
     </div>
 </body>
 </html>

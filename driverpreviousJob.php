@@ -589,9 +589,12 @@ error_log("Is palliative driver: " . ($is_palliative ? "Yes" : "No"));
 <body>
     <?php include 'header.php'; ?>
     <div class="container">
+  
     <div class="glass-card position-relative">
-        <a href="driver.php" class="btn btn-success position-absolute" style="top: 30px; right: 30px;">Back</a>
-        <h2 class="mb-4">My Job History</h2>
+    <a href="driver.php" class="btn btn-success position-absolute" style="top: 30px; left: 30px;">Back</a>
+    <h2 class="text-center mb-4">My Job History</h2>
+
+
 
         <?php if ($error_message): ?>
             <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
