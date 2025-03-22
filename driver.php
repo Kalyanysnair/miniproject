@@ -109,9 +109,51 @@
         return mail($to, $subject, $message, $headers);
     }
 
+    // Function to send SMS notification
+    function sendSMS($phoneNumber, $message) {
+        // Replace with your preferred SMS gateway API
+        // This is a placeholder for Twilio API integration
+        $account_sid = 'YOUR_TWILIO_ACCOUNT_SID';
+        $auth_token = 'YOUR_TWILIO_AUTH_TOKEN';
+        $twilio_number = 'YOUR_TWILIO_PHONE_NUMBER';
+        
+        // You can use cURL to send the request to the SMS gateway
+        $url = "https://api.twilio.com/2010-04-01/Accounts/$account_sid/Messages.json";
+        
+        $data = array(
+            'From' => $twilio_number,
+            'To' => $phoneNumber,
+            'Body' => $message
+        );
+        
+        $post = http_build_query($data);
+        
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        curl_setopt($ch, CURLOPT_USERPWD, "$account_sid:$auth_token");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+        
+        $result = curl_exec($ch);
+        curl_close($ch);
+        
+        return $result;
+    }
+
     // Handle accept request actions here if needed
     if (isset($_POST['accept_emergency'])) {
         // Logic to accept emergency request
+        $emergency_id = $_POST['emergency_id'];
+        $user_phone = $_POST['user_phone'];
+        $user_name = $_POST['user_name'];
+        
+        // Send SMS notification
+        $sms_message = "SWIFTAID: Hello $user_name, your emergency request (ID: $emergency_id) has been accepted. Our driver is on the way to your location.";
+        sendSMS($user_phone, $sms_message);
+        
+        // Additional logic to update database status, etc.
     }
     
     if (isset($_POST['accept_prebooking'])) {
@@ -371,6 +413,8 @@
                     <form action="handle_request.php" method="POST" class="accept-form">
                         <input type="hidden" name="request_type" value="emergency">
                         <input type="hidden" name="request_id" value="<?php echo $request['request_id']; ?>">
+                        <input type="hidden" name="user_phone" value="<?php echo htmlspecialchars($request['contact_phone']); ?>">
+                        <input type="hidden" name="user_name" value="<?php echo htmlspecialchars($request['patient_name']); ?>">
                         <button type="submit" class="design">Accept Request</button>
                     </form>
                 </div>
@@ -400,6 +444,8 @@
                                 <input type="hidden" name="request_type" value="prebooking">
                                 <input type="hidden" name="request_id" value="<?php echo $request['prebookingid']; ?>">
                                 <input type="hidden" name="user_email" value="<?php echo htmlspecialchars($request['email'] ?? ''); ?>">
+                                <input type="hidden" name="user_phone" value="<?php echo htmlspecialchars($request['phoneno']); ?>">
+                                <input type="hidden" name="user_name" value="<?php echo htmlspecialchars($request['user_name'] ?? 'User'); ?>">
                                 <button type="submit" class="design">Accept Request</button>
                             </form>
                         </div>
@@ -428,6 +474,8 @@
                             <form action="handle_palliative.php" method="POST" class="accept-form">
                                 <input type="hidden" name="request_type" value="palliative">
                                 <input type="hidden" name="request_id" value="<?php echo $request['palliativeid']; ?>">
+                                <input type="hidden" name="user_phone" value="<?php echo htmlspecialchars($request['phoneno']); ?>">
+                                <input type="hidden" name="user_name" value="<?php echo htmlspecialchars($request['user_name']); ?>">
                                 <button type="submit" class="design">Accept Request</button>
                             </form>
                         </div>

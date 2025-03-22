@@ -9,8 +9,6 @@ if (!isset($_SESSION['username'])) {
 }
 
 // Fetch user details
-
-// Fetch user details
 $username = $_SESSION['username'];
 $stmt = $conn->prepare("SELECT username, phoneno FROM tbl_user WHERE username = ?");
 
@@ -33,46 +31,76 @@ if ($result->num_rows > 0) {
 }
 $stmt->close();
 
+// Initialize success variable
+$success = false;
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $patient_name = !empty($_POST['patient_name']) ? trim($_POST['patient_name']) : null;
     $pickup_location = !empty($_POST['pickup_location']) ? trim($_POST['pickup_location']) : null;
     $contact_phone = !empty($_POST['contact_phone']) ? trim($_POST['contact_phone']) : null;
     $ambulance_type = !empty($_POST['ambulance_type']) ? trim($_POST['ambulance_type']) : null;
-    // We'll still collect the booking_date but won't insert it to the database
     $booking_date = !empty($_POST['booking_date']) ? trim($_POST['booking_date']) : null;
 
-    if (empty($patient_name) || empty($pickup_location) || empty($contact_phone) || empty($ambulance_type)) {
-        die("All fields are required.");
+    // Server-side validation
+    $errors = [];
+    if (empty($patient_name) || strlen($patient_name) < 2) {
+        $errors[] = "Patient name is required and must be at least 2 characters.";
+    }
+    if (empty($pickup_location)) {
+        $errors[] = "Pickup location is required.";
+    }
+    if (empty($contact_phone) || !preg_match('/^\d{10}$/', $contact_phone)) {
+        $errors[] = "Valid 10-digit phone number is required.";
+    }
+    if (empty($ambulance_type)) {
+        $errors[] = "Ambulance type is required.";
+    }
+    if (empty($booking_date) || strtotime($booking_date) < strtotime(date('Y-m-d'))) {
+        $errors[] = "Valid booking date is required (today or future date).";
     }
 
-    // Use the original query that matches your table structure
-  // Use the query that matches your table structure
-$stmt = $conn->prepare("INSERT INTO tbl_emergency (patient_name, pickup_location, contact_phone, ambulance_type, created_at, userid) VALUES (?, ?, ?, ?, NOW(), ?)");
+    if (empty($errors)) {
+        // Use the query that matches your table structure
+        $stmt = $conn->prepare("INSERT INTO tbl_emergency (patient_name, pickup_location, contact_phone, ambulance_type, created_at, userid) VALUES (?, ?, ?, ?, NOW(), ?)");
 
-if ($stmt) {
-    // Get the user's ID
-    $id_stmt = $conn->prepare("SELECT userid FROM tbl_user WHERE username = ?");
-    $id_stmt->bind_param("s", $username);
-    $id_stmt->execute();
-    $id_result = $id_stmt->get_result();
-    
-    if ($id_result->num_rows > 0) {
-        $user_row = $id_result->fetch_assoc();
-        $userid = $user_row['userid'];
-        
-        $stmt->bind_param("ssssi", $patient_name, $pickup_location, $contact_phone, $ambulance_type, $userid);
-        if ($stmt->execute()) {
-            $stmt->close();
-            $_SESSION['message'] = "Emergency booking successful!";
+        if ($stmt) {
+            // Get the user's ID
+            $id_stmt = $conn->prepare("SELECT userid FROM tbl_user WHERE username = ?");
+            $id_stmt->bind_param("s", $username);
+            $id_stmt->execute();
+            $id_result = $id_stmt->get_result();
+            
+            if ($id_result->num_rows > 0) {
+                $user_row = $id_result->fetch_assoc();
+                $userid = $user_row['userid'];
+                
+                $stmt->bind_param("ssssi", $patient_name, $pickup_location, $contact_phone, $ambulance_type, $userid);
+                if ($stmt->execute()) {
+                    $stmt->close();
+                    $success = true;
+                    $_SESSION['success_message'] = "Emergency booking successful!";
+                    
+                    // Redirect to prevent form resubmission on refresh
+                    header("Location: " . $_SERVER['PHP_SELF']);
+                    exit();
+                } else {
+                    $errors[] = "Database error: " . $stmt->error;
+                }
+            } else {
+                $errors[] = "User not found.";
+            }
         } else {
-            die("Database error: " . $stmt->error);
+            $errors[] = "Database error: " . $conn->error;
         }
-    } else {
-        die("User not found.");
     }
-} else {
-    die("Database error: " . $conn->error);
 }
+
+// Check if there's a success message in the session
+$success_message = "";
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    // Clear the session message to prevent it from showing on refresh
+    unset($_SESSION['success_message']);
 }
 ?>
 <!DOCTYPE html>
@@ -128,10 +156,10 @@ if ($stmt) {
             border: 1px solid #dc3545;
         }
         .input-valid {
-            border: 1px solid #28a745;
+            border: 1px solid rgb(54, 122, 5);
         }
         .success-message {
-            background-color: rgba(40, 167, 69, 0.8);
+            background-color: rgba(13, 134, 9, 0.8);
             color: white;
             padding: 15px;
             border-radius: 5px;
@@ -140,7 +168,16 @@ if ($stmt) {
             font-weight: bold;
             display: none;
         }
-        
+        .error-message {
+            background-color: rgba(220, 53, 69, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
         /* Sidebar styles */
         .sidebar {
             width: 250px;
@@ -151,6 +188,8 @@ if ($stmt) {
             background-color: rgba(194, 195, 194, 0.43);
             padding-top: 20px;
             z-index: 1000;
+            text-align: left;
+            
         }
         
         .user-info {
@@ -207,7 +246,7 @@ if ($stmt) {
     <div class="user-info"><a href="user1.php">
     <i class="fas fa-user-circle"></i>
     <?php echo $_SESSION['username']; ?></a>
-</div>
+    </div>
         <ul class="sidebar-nav">
             <li><a href="user_profile.php"><i class="fas fa-user"></i> Profile</a></li>
             <li><a href="status.php"><i class="fas fa-list"></i> My Bookings</a></li>
@@ -221,12 +260,25 @@ if ($stmt) {
         <div class="container mt-5">
             <div class="form-container">
                 <!-- Success Message Display -->
-                <div id="successMessage" class="success-message">
-                    Emergency booking successful!
-                </div>
+                <?php if (!empty($success_message)): ?>
+                    <div id="successMessage" class="success-message" style="display: block;">
+                        <?php echo $success_message; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Error Messages Display -->
+                <?php if (!empty($errors)): ?>
+                    <div class="error-message">
+                        <ul style="list-style-type: none; padding: 0; margin: 0;">
+                            <?php foreach ($errors as $error): ?>
+                                <li><?php echo $error; ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
                 
                 <h1 style="color:red; text-align:center"><b>Emergency Booking</b></h1>
-                <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="emergencyForm">
+                <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" id="emergencyForm" novalidate>
                     <!-- First Row -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -264,7 +316,6 @@ if ($stmt) {
                     <!-- Map Section (initially hidden) -->
                     <div id="map"></div>
 
-
                     <!-- Second Row -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -291,7 +342,7 @@ if ($stmt) {
                         <div class="col-12">
                             <label>Date</label>
                             <input type="date" name="booking_date" id="booking_date" class="form-control" required>
-                            <div id="booking_date_validation" class="validation-message">Please select a valid date</div>
+                            <div id="booking_date_validation" class="validation-message">Please select a valid date (today or future)</div>
                         </div>
                     </div>
                     <!-- Submit Button -->
@@ -312,6 +363,7 @@ if ($stmt) {
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('booking_date').value = today;
+            document.getElementById('booking_date').min = today; // Set minimum date to today
             
             // Initially try to get current location since that's the default option
             if (document.getElementById('current_location').checked) {
@@ -321,29 +373,14 @@ if ($stmt) {
             // Set up form validation
             setupValidation();
             
-            // Check for success message in URL params (for AJAX form submission)
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('success') === 'true') {
-                showSuccessMessage();
-            }
-            
-            // Check for PHP session success message
-            <?php if(isset($_SESSION['message'])): ?>
-                showSuccessMessage();
-                <?php unset($_SESSION['message']); ?>
-            <?php endif; ?>
-        });
-
-        // Show success message function
-        function showSuccessMessage() {
+            // Auto-hide success message after 5 seconds
             const successMsg = document.getElementById('successMessage');
-            successMsg.style.display = 'block';
-            
-            // Hide message after 5 seconds
-            setTimeout(() => {
-                successMsg.style.display = 'none';
-            }, 5000);
-        }
+            if (successMsg && successMsg.style.display === 'block') {
+                setTimeout(() => {
+                    successMsg.style.display = 'none';
+                }, 5000);
+            }
+        });
 
         // Location option change handler
         document.querySelectorAll('input[name="location_option"]').forEach(function(radio) {
@@ -368,13 +405,13 @@ if ($stmt) {
                 .then(data => {
                     document.getElementById('pickup_location').value = data.display_name;
                     validateField('pickup_location');
-                    
-                    // If map option was chosen, hide the map after selection
-                    if (document.getElementById('choose_map').checked) {
-                        document.getElementById('map').style.display = 'none';
-                    }
                 })
-                .catch(error => console.error("Error fetching location:", error));
+                .catch(error => {
+                    console.error("Error fetching location:", error);
+                    // Fallback to simple coordinates if reverse geocoding fails
+                    document.getElementById('pickup_location').value = `Latitude: ${lat.toFixed(6)}, Longitude: ${lng.toFixed(6)}`;
+                    validateField('pickup_location');
+                });
         }
 
         // Click on map to set the location
@@ -397,11 +434,24 @@ if ($stmt) {
                         getPlaceName(lat, lng);
                     },
                     (error) => {
-                        alert("Error getting location: " + error.message);
+                        console.error("Error getting location:", error.message);
+                        alert("Error getting location: " + error.message + ". Please use the map to select your location.");
+                        // Switch to map option automatically
+                        document.getElementById('choose_map').checked = true;
+                        document.getElementById('map').style.display = 'block';
+                        setTimeout(function() {
+                            map.invalidateSize();
+                        }, 100);
                     }
                 );
             } else {
-                alert("Geolocation not supported.");
+                alert("Geolocation not supported by your browser. Please use the map to select your location.");
+                // Switch to map option automatically
+                document.getElementById('choose_map').checked = true;
+                document.getElementById('map').style.display = 'block';
+                setTimeout(function() {
+                    map.invalidateSize();
+                }, 100);
             }
         }
 

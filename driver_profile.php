@@ -514,6 +514,13 @@ if (!$driver) {
     <!-- Main Content -->
     <main class="main">
         <div class="profile-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <a href="driver.php" class="btn" style="background-color: #6c757d; color: white;">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+                <div></div> <!-- Empty div to maintain spacing -->
+            </div>
+            
             <div class="profile-header">
                 <h2>Driver Profile</h2>
                 <p>View and manage your driver profile information</p>
