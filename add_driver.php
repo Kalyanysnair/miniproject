@@ -147,7 +147,7 @@ $conn->close();
         }
         .container {
             max-width: 720px;
-            background: rgba(187, 185, 185, 0.85);
+            background: rgba(216, 213, 213, 0.85);
             padding: 40px;
             margin: 40px auto;
             border-radius: 10px;
@@ -156,7 +156,7 @@ $conn->close();
         h2 {
             text-align: center;
             margin-bottom: 20px;
-            color: rgba(25, 195, 31, 0.85);
+            color: rgba(62, 195, 25, 0.85);
         }
        
         input, select {
@@ -176,7 +176,7 @@ $conn->close();
         button {
             width: 100%;
             padding: 12px;
-            background: rgb(33, 204, 70);
+            background: rgb(36, 204, 33);
             color: white;
             border: none;
             border-radius: 5px;
@@ -240,27 +240,30 @@ $conn->close();
         input.valid, select.valid {
             border: 1px solid green;
         }
+        .back-to-dashboard-btn {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background-color: rgba(12, 190, 6, 0.67);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        .back-to-dashboard-btn:hover {
+            background-color: rgb(0, 105, 12);
+            color: white;
+        }
     </style>
 </head>
 <body>
 
-<header style="background-color: #343a40; padding: 10px 0;">
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 98%; padding: 0 20px;">
-        <!-- Navbar Title -->
-        <div class="navbar" style="color: white; font-size: 18px;">
-            Admin Panel - Add Ambulance Driver
-        </div>
-
-        <!-- Back Button -->
-        <a href="admin.php" style="text-decoration: none; color: white; background-color:rgb(33, 208, 92); padding: 10px 20px; border-radius: 5px; font-size: 16px;">
-            Back
-        </a>
-    </div>
-</header>
-
 <div class="container">
     <h2>Add Ambulance Driver</h2>
-    
+    <a href="admin.php" class="back-to-dashboard-btn" style="text-decoration: none; color: white; background-color:rgb(33, 208, 92); padding: 10px 20px; border-radius: 5px; font-size: 16px;">
+            Back
+        </a>
     <?php if ($success) echo "<p class='success'>$success</p>"; ?>
     <?php if ($error) echo "<p class='error'>$error</p>"; ?>
 

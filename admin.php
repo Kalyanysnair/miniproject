@@ -143,8 +143,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <div class="wrapper">
         <!-- Sidebar -->
         <nav id="sidebar">
-            <h3 class="text-center p-3">SwiftAid Admin</h3>
-            <a href="admin.php" ><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <!-- <h3 class="text-center p-3">SwiftAid Admin</h3> -->
+            <!-- <a href="admin.php" ><i class="fas fa-tachometer-alt"></i> Dashboard</a> -->
             <a href="UserManagement.php"><i class="fas fa-users"></i> User Management</a>
             <a href="add_driver.php"><i class="fas fa-user-plus"></i> Add Drivers</a>
             <a href="driver_detail.php"><i class="fas fa-id-card"></i> Driver Details</a>
@@ -152,7 +152,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <a href="admin_payments.php"><i class="fas fa-credit-card"></i> Payments</a>
             <a href="emergency_schedule.php"><i class="fas fa-calendar-alt"></i> Emergency Schedule</a>
             <a href="admin_driver_requests.php"><i class="fas fa-calendar-alt"></i> Driver Management</a>
-            <!-- <a href="admin_userdetail.php"><i class="fas fa-calendar-alt"></i> User Requests</a> -->
+            <a href="security.php"><i class="fas fa-credit-card"></i> Security</a>
+             <a href="admin_stat.php"><i class="fas fa-calendar-alt"></i> Statistics</a> 
+             <a href="admin_leave_requests.php"><i class="fas fa-calendar-alt"></i> Leave</a>
+            <a href="admin_tip.php"><i class="fas fa-calendar-alt"></i> Emergency Tips</a> 
             <a href="logout.php" class="btn btn-danger logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </nav>
 

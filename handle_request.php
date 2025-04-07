@@ -16,34 +16,6 @@ $error_message = '';
 $success_message = '';
 $request_time = '';
 
-// Function to send SMS using Twilio API
-function sendSMS($phoneNumber, $message) {
-    $account_sid = 'YOUR_TWILIO_ACCOUNT_SID'; // Replace with your Twilio Account SID
-    $auth_token = 'YOUR_TWILIO_AUTH_TOKEN';   // Replace with your Twilio Auth Token
-    $twilio_number = 'YOUR_TWILIO_PHONE_NUMBER'; // Replace with your Twilio phone number
-
-    $url = "https://api.twilio.com/2010-04-01/Accounts/$account_sid/Messages.json";
-
-    $data = [
-        'From' => $twilio_number,
-        'To' => $phoneNumber,
-        'Body' => $message
-    ];
-
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-    curl_setopt($ch, CURLOPT_USERPWD, "$account_sid:$auth_token");
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-
-    $result = curl_exec($ch);
-    curl_close($ch);
-
-    return $result;
-}
-
 // Handle Emergency Request
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_POST["request_type"] === "emergency") {
     if (isset($_POST["request_id"])) {
@@ -58,18 +30,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
             try {
                 $mysqli->begin_transaction();
 
-                // Get all emergency request details before updating
+                // Get all emergency request details with patient_name from tbl_user
                 $details_stmt = $mysqli->prepare("
-                    SELECT request_id, userid, pickup_location, contact_phone, 
-                           status, created_at, ambulance_type, patient_name
-                    FROM tbl_emergency 
-                    WHERE request_id = ?
+                    SELECT e.request_id, e.userid, e.pickup_location, e.contact_phone, 
+                           e.status, e.created_at, e.ambulance_type, e.patient_name,
+                           u.email, u.username
+                    FROM tbl_emergency e
+                    INNER JOIN tbl_user u ON e.userid = u.userid
+                    WHERE e.request_id = ?
                 ");
                 if ($details_stmt) {
                     $details_stmt->bind_param("i", $request_id);
                     $details_stmt->execute();
-                    $request_data = $details_stmt->get_result()->fetch_assoc();
-                    $request_time = $request_data['created_at'];
+                    $result = $details_stmt->get_result();
+                    if ($result->num_rows > 0) {
+                        $request_data = $result->fetch_assoc();
+                        $request_time = $request_data['created_at'];
+                    } else {
+                        $error_message = "Emergency request not found.";
+                    }
+                } else {
+                    throw new Exception("Prepare failed: " . $mysqli->error);
                 }
 
                 $update_stmt = $mysqli->prepare("UPDATE tbl_emergency SET status = ?, driver_id = ? WHERE request_id = ? AND status = ?");
@@ -88,19 +69,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
                 if ($update_stmt->affected_rows > 0) {
                     $success_message = "Emergency request accepted successfully.";
 
-                    // Send SMS notification
-                    $sms_message = "Hello $user_name, your emergency request (ID: $request_id) has been accepted. Our driver is on the way to your location.";
-                    $sms_result = sendSMS($user_phone, $sms_message);
-
-                    // if ($sms_result) {
-                    //     $success_message .= " SMS notification sent.";
-                    // } else {
-                    //     $error_message .= " Failed to send SMS notification.";
-                    // }
-
-                    // Refresh request data after update
-                    $details_stmt->execute();
-                    $request_data = $details_stmt->get_result()->fetch_assoc();
+                    // Send email confirmation
+                    $mail = new PHPMailer(true);
+                    try {
+                        $mail->isSMTP();
+                        $mail->Host = 'smtp.gmail.com';
+                        $mail->SMTPAuth = true;
+                        $mail->Username = 'kalyanys2004@gmail.com'; // Replace with your email
+                        $mail->Password = 'ooqs zxti mult tlcb'; // Replace with your email password
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                        $mail->Port = 587;
+                
+                        $mail->setFrom('kalyanys2004@gmail.com', 'SWIFTAID');
+                
+                        // Check if email and user_name exist in $request_data
+                        $email = $request_data['email'] ?? 'no-email@example.com';
+                        $user_name = $request_data['username'] ?? $request_data['patient_name'] ?? 'Unknown User';
+                
+                        $mail->addAddress($email, $user_name);
+                        $mail->Subject = "Emergency Request Accepted";
+                        $mail->Body = "Hello " . $user_name . ",\n\n" .
+                                    "Your emergency ambulance request has been accepted.\n\n" .
+                                    "Patient Name: " . $request_data['patient_name'] . "\n" .
+                                    "Ambulance Type: " . $request_data['ambulance_type'] . "\n" .
+                                    "Pickup Location: " . $request_data['pickup_location'] . "\n" .
+                                    "Contact Phone: " . $request_data['contact_phone'] . "\n" .
+                                    "Request Time: " . $request_data['created_at'] . "\n\n" .
+                                    "Help is on the way!\n\n" .
+                                    "Best Regards,\nSWIFTAID";
+                
+                        $mail->send();
+                        $success_message .= " Email confirmation sent.";
+                    } catch (Exception $e) {
+                        $error_message = "Mail could not be sent. Error: " . $mail->ErrorInfo;
+                    }
                 } else {
                     $error_message = "Emergency request not found or already accepted.";
                 }
@@ -130,19 +132,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
             try {
                 $mysqli->begin_transaction();
 
-                // Get all prebooking request details
+                // Get all prebooking request details with patient_name from tbl_user
                 $details_stmt = $mysqli->prepare("
-                    SELECT prebookingid, userid, pickup_location, destination, 
-                           service_type, service_time, ambulance_type, 
-                           additional_requirements, comments, created_at, status
-                    FROM tbl_prebooking 
-                    WHERE prebookingid = ?
+                    SELECT p.prebookingid, p.userid, p.pickup_location, p.destination, 
+                           p.service_type, p.service_time, p.ambulance_type, 
+                           p.additional_requirements, p.comments, p.created_at, p.status,
+                           u.username AS patient_name, u.email
+                    FROM tbl_prebooking p
+                    INNER JOIN tbl_user u ON p.userid = u.userid
+                    WHERE p.prebookingid = ?
                 ");
                 if ($details_stmt) {
                     $details_stmt->bind_param("i", $request_id);
                     $details_stmt->execute();
-                    $request_data = $details_stmt->get_result()->fetch_assoc();
-                    $request_time = $request_data['created_at'];
+                    $result = $details_stmt->get_result();
+                    if ($result->num_rows > 0) {
+                        $request_data = $result->fetch_assoc();
+                        $request_time = $request_data['created_at'];
+                    } else {
+                        $error_message = "Prebooking request not found.";
+                    }
+                } else {
+                    throw new Exception("Prepare failed: " . $mysqli->error);
                 }
 
                 $update_stmt = $mysqli->prepare("UPDATE tbl_prebooking SET status = ?, driver_id = ? WHERE prebookingid = ? AND status = ?");
@@ -157,20 +168,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
                 if (!$update_stmt->execute()) {
                     throw new Exception("Execute failed: " . $update_stmt->error);
                 }
-
                 if ($update_stmt->affected_rows > 0) {
                     $success_message = "Prebooking request accepted successfully.";
-
-                    // Send SMS notification
-                    $sms_message = "Hello $user_name, your prebooking request (ID: $request_id) has been accepted. Our driver will arrive at the scheduled time.";
-                    $sms_result = sendSMS($user_phone, $sms_message);
-
-                    // if ($sms_result) {
-                    //     $success_message .= " SMS notification sent.";
-                    // } else {
-                    //     $error_message .= " Failed to send SMS notification.";
-                    // }
-
+                
                     // Send email confirmation
                     $mail = new PHPMailer(true);
                     try {
@@ -181,11 +181,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
                         $mail->Password = 'ooqs zxti mult tlcb'; // Replace with your email password
                         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
                         $mail->Port = 587;
-
+                
                         $mail->setFrom('kalyanys2004@gmail.com', 'SWIFTAID');
-                        $mail->addAddress($request_data['email'], $request_data['user_name']);
+                
+                        // Check if email and user_name exist in $request_data
+                        $email = $request_data['email'] ?? 'no-email@example.com';
+                        $user_name = $request_data['patient_name'] ?? 'Unknown User';
+                
+                        $mail->addAddress($email, $user_name);
                         $mail->Subject = "Prebooking Request Accepted";
-                        $mail->Body = "Hello " . $request_data['user_name'] . ",\n\n" .
+                        $mail->Body = "Hello " . $user_name . ",\n\n" .
                                     "Your prebooking request has been accepted.\n\n" .
                                     "Service Time: " . $request_data['service_time'] . "\n" .
                                     "Ambulance Type: " . $request_data['ambulance_type'] . "\n" .
@@ -193,7 +198,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
                                     "Destination: " . $request_data['destination'] . "\n" .
                                     "Service Type: " . $request_data['service_type'] . "\n\n" .
                                     "Best Regards,\nSWIFTAID";
-
+                
                         $mail->send();
                         $success_message .= " Email confirmation sent.";
                     } catch (Exception $e) {
@@ -326,14 +331,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
 
     <?php if ($request_data): ?>
         <table class="details-table">
+            <tr>
+                <th>Patient Name</th>
+                <td><?php echo htmlspecialchars($request_data['patient_name'] ?? $request_data['username'] ?? 'Not specified'); ?></td>
+            </tr>
             <?php if (isset($_POST["request_type"]) && $_POST["request_type"] === "emergency"): ?>
                 <tr>
                     <th>Request ID</th>
                     <td><?php echo htmlspecialchars($request_data['request_id']); ?></td>
-                </tr>
-                <tr>
-                    <th>Patient Name</th>
-                    <td><?php echo htmlspecialchars($request_data['patient_name']); ?></td>
                 </tr>
                 <tr>
                     <th>Contact Phone</th>
@@ -379,6 +384,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_type"]) && $_
                 <tr>
                     <th>Additional Requirements</th>
                     <td><?php echo htmlspecialchars($request_data['additional_requirements'] ?: 'None'); ?></td>
+                </tr>
+                <tr>
+                    <th>Comments</th>
+                    <td><?php echo htmlspecialchars($request_data['comments'] ?: 'None'); ?></td>
                 </tr>
                 <tr>
                     <th>Request Time</th>

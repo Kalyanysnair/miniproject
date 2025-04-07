@@ -25,12 +25,12 @@ try {
 
     // First check if payment already exists
     $check_payment = "SELECT payment_id, amount FROM tbl_payments 
-                     WHERE request_type = ? AND request_id = ? AND userid = ?";
+                     WHERE razorpay_payment_id = ? AND userid = ?";
     $stmt = $conn->prepare($check_payment);
     if (!$stmt) {
         throw new Exception("Database error: " . $conn->error);
     }
-    $stmt->bind_param("sii", $request_type, $request_id, $userid);
+    $stmt->bind_param("si", $razorpay_payment_id, $userid);
     $stmt->execute();
     $payment_result = $stmt->get_result();
     
@@ -100,23 +100,7 @@ try {
         }
     }
 
-    // Update booking status and payment status
-    $update_query = "UPDATE $table 
-                    SET payment_status = 'Paid',
-                        amount = ? 
-                    WHERE $id_field = ? AND (userid = ? OR userid IS NULL)";
-    $stmt = $conn->prepare($update_query);
-    if (!$stmt) {
-        throw new Exception("Database error: " . $conn->error);
-    }
-    $stmt->bind_param("dii", $amount, $request_id, $userid);
-    $stmt->execute();
-
-    if ($stmt->affected_rows === 0) {
-        throw new Exception("Failed to update booking status");
-    }
-
-    // Insert payment record
+    // Insert payment record first
     $insert_query = "INSERT INTO tbl_payments (razorpay_payment_id, request_type, request_id, userid, amount, payment_status) 
                      VALUES (?, ?, ?, ?, ?, 'completed')";
     $stmt = $conn->prepare($insert_query);
@@ -128,6 +112,55 @@ try {
 
     if ($stmt->affected_rows === 0) {
         throw new Exception("Failed to record payment");
+    }
+
+    // Update booking status and payment status
+    $update_query = "UPDATE $table 
+                    SET payment_status = 'Paid',
+                        amount = ? 
+                    WHERE $id_field = ?";
+    
+    error_log("Payment Success: Update query: " . $update_query);
+    error_log("Payment Success: Parameters - amount: $amount, request_id: $request_id");
+    
+    $stmt = $conn->prepare($update_query);
+    if (!$stmt) {
+        throw new Exception("Database error: " . $conn->error);
+    }
+    
+    // Bind parameters based on the query
+    $stmt->bind_param("di", $amount, $request_id);
+    
+    $stmt->execute();
+    
+    // Log the affected rows for debugging
+    error_log("Payment Success: Update affected rows: " . $stmt->affected_rows);
+    
+    if ($stmt->affected_rows === 0) {
+        // Check if the booking exists and its current status
+        $check_status_query = "SELECT status, payment_status FROM $table WHERE $id_field = ?";
+        $check_stmt = $conn->prepare($check_status_query);
+        if (!$check_stmt) {
+            throw new Exception("Database error: " . $conn->error);
+        }
+        $check_stmt->bind_param("i", $request_id);
+        $check_stmt->execute();
+        $status_result = $check_stmt->get_result();
+        $status_data = $status_result->fetch_assoc();
+        
+        error_log("Payment Success: Current booking status: " . print_r($status_data, true));
+        
+        if (!$status_data) {
+            throw new Exception("Booking not found");
+        } else if ($status_data['payment_status'] === 'Paid') {
+            // Payment already processed
+            $_SESSION['payment_success'] = true;
+            $_SESSION['payment_amount'] = $amount;
+            header("Location: payment_receipt.php?payment_id=" . $razorpay_payment_id);
+            exit();
+        } else {
+            throw new Exception("Failed to update booking status. Current status: " . $status_data['status'] . ", Payment status: " . $status_data['payment_status']);
+        }
     }
 
     // Commit transaction
@@ -148,7 +181,7 @@ try {
     }
     error_log("Payment recording failed: " . $e->getMessage());
     $_SESSION['payment_failed'] = true;
-    header("Location: status.php");
+    header("Location: status.php?error=payment_failed&message=" . urlencode($e->getMessage()));
     exit();
 }
 ?>

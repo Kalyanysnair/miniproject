@@ -89,7 +89,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                         SELECT 
                             u.username AS patient_name, 
                             u.phoneno AS contact_phone, 
-                            p.address AS pickup_location,
+                            p.address AS complete_address,
+                            p.medical_condition,
+                            p.additional_requirements,
+                            p.comments,
                             p.created_at, 
                             u.email 
                         FROM tbl_palliative p 
@@ -113,9 +116,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                         $sms_result = sendSMS($user_phone, $sms_message);
 
                         if ($sms_result) {
-                            $success_message = "Request accepted successfully. SMS notification sent.";
+                            $success_message = "Request accepted successfully.";
                         } else {
-                            $error_message = "Request accepted successfully, but SMS notification failed.";
+                            $error_message = "Request accepted successfully.";
                         }
 
                         // Send Email Notification
@@ -140,7 +143,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                                     <h2>Palliative Request Confirmation</h2>
                                     <p>Hello {$request_data['patient_name']},</p>
                                     <p>Your palliative care request has been accepted.</p>
-                                    <p><strong>Pickup Location:</strong> {$request_data['pickup_location']}</p>
+                                    <p><strong>Medical Condition:</strong> {$request_data['medical_condition']}</p>
+                                    <p><strong>Complete Address:</strong> {$request_data['complete_address']}</p>
+                                    <p><strong>Additional Requirements:</strong> {$request_data['additional_requirements']}</p>
+                                    <p><strong>Comments:</strong> {$request_data['comments']}</p>
                                     <p>A driver will assist you shortly.</p>
                                     <br>
                                     <p>Best Regards,<br>SWIFTAID Team</p>
@@ -299,8 +305,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["request_id"]) && isse
                 <td><?php echo htmlspecialchars($request_data['contact_phone'] ?? '-'); ?></td>
             </tr>
             <tr>
-                <td><strong>Pickup Location:</strong></td>
-                <td><?php echo htmlspecialchars($request_data['pickup_location'] ?? '-'); ?></td>
+                <td><strong>Medical Condition:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['medical_condition'] ?? '-'); ?></td>
+            </tr>
+            <tr>
+                <td><strong>Complete Address:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['complete_address'] ?? '-'); ?></td>
+            </tr>
+            <tr>
+                <td><strong>Additional Requirements:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['additional_requirements'] ?? '-'); ?></td>
+            </tr>
+            <tr>
+                <td><strong>Comments:</strong></td>
+                <td><?php echo htmlspecialchars($request_data['comments'] ?? '-'); ?></td>
             </tr>
             <tr>
                 <td><strong>Request Time:</strong></td>

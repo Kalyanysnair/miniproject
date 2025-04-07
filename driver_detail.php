@@ -152,28 +152,35 @@ $conn->close();
         .toggle-status-btn.inactive {
             background-color: #f44336; /* Red for inactive */
         }
+        .back-to-dashboard-btn {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background-color: rgba(12, 190, 6, 0.67);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+        }
+        .back-to-dashboard-btn:hover {
+            background-color: rgb(0, 105, 12);
+            color: white;
+        }
     </style>
 </head>
 <body>
 
-<header style="background-color:rgb(73, 75, 76); padding: 10px 0;">
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 20px;">
-        <!-- Title -->
-        <h1 style="color: white; margin: 0;">Driver and Ambulance Details</h1>
 
-        <!-- Back Button -->
-        <a href="admin.php" style="text-decoration: none; color: white; background-color:rgb(45, 92, 54); padding: 10px 20px; border-radius: 5px; font-size: 16px;">
-            Back
-        </a>
-    </div>
-</header>
 
 <div class="container">
     <form method="POST">
         <input type="text" name="search" class="search-box" placeholder="Search Drivers Here" value="<?php echo htmlspecialchars($search); ?>" />
         <input type="submit" value="Search" />
     </form>
-
+    <a href="admin.php" class="back-to-dashboard-btn" style="text-decoration: none; color: white; background-color:rgb(45, 92, 54); padding: 10px 20px; border-radius: 5px; font-size: 16px;">
+            Back
+        </a>
     <table>
         <tr>
             <th>Driver ID</th>

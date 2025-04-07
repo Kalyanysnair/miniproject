@@ -96,74 +96,6 @@
         $palliative_result = $stmt->get_result();
     }
     
-    // Function to send email
-    function sendConfirmationEmail($userEmail, $userName, $requestType, $requestId) {
-        $to = $userEmail;
-        $subject = "SWIFTAID - Request Accepted";
-        $message = "Dear $userName,\n\n";
-        $message .= "Your $requestType request (ID: $requestId) has been accepted by one of our drivers.\n";
-        $message .= "We will arrive at your location as specified in your request.\n\n";
-        $message .= "Thank you for choosing SWIFTAID.\n";
-        $headers = "From: swiftaid@gmail.com";
-
-        return mail($to, $subject, $message, $headers);
-    }
-
-    // Function to send SMS notification
-    function sendSMS($phoneNumber, $message) {
-        // Replace with your preferred SMS gateway API
-        // This is a placeholder for Twilio API integration
-        $account_sid = 'YOUR_TWILIO_ACCOUNT_SID';
-        $auth_token = 'YOUR_TWILIO_AUTH_TOKEN';
-        $twilio_number = 'YOUR_TWILIO_PHONE_NUMBER';
-        
-        // You can use cURL to send the request to the SMS gateway
-        $url = "https://api.twilio.com/2010-04-01/Accounts/$account_sid/Messages.json";
-        
-        $data = array(
-            'From' => $twilio_number,
-            'To' => $phoneNumber,
-            'Body' => $message
-        );
-        
-        $post = http_build_query($data);
-        
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        curl_setopt($ch, CURLOPT_USERPWD, "$account_sid:$auth_token");
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-        
-        $result = curl_exec($ch);
-        curl_close($ch);
-        
-        return $result;
-    }
-
-    // Handle accept request actions here if needed
-    if (isset($_POST['accept_emergency'])) {
-        // Logic to accept emergency request
-        $emergency_id = $_POST['emergency_id'];
-        $user_phone = $_POST['user_phone'];
-        $user_name = $_POST['user_name'];
-        
-        // Send SMS notification
-        $sms_message = "SWIFTAID: Hello $user_name, your emergency request (ID: $emergency_id) has been accepted. Our driver is on the way to your location.";
-        sendSMS($user_phone, $sms_message);
-        
-        // Additional logic to update database status, etc.
-    }
-    
-    if (isset($_POST['accept_prebooking'])) {
-        // Logic to accept prebooking request
-    }
-    
-    if (isset($_POST['accept_palliative'])) {
-        // Logic to accept palliative request
-    }
-    
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -232,7 +164,7 @@
         }
 
         .navmenu a {
-            color:rgb(155, 156, 157);
+            color:rgb(248, 249, 250);
             text-decoration: none;
             font-weight: 500;
         }
@@ -252,9 +184,10 @@
             top: var(--header-height);
             width: var(--sidebar-width);
             height: calc(100vh - var(--header-height));
-            background: rgba(218, 214, 214, 0.46);
+            background: rgba(246, 241, 241, 0.61);
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             padding: 20px 0;
+            overflow-y: auto;
         }
 
         .sidebar-nav {
@@ -264,7 +197,8 @@
         }
 
         .sidebar-nav li {
-            padding: 10px 20px;
+            padding: 0;
+            margin: 5px 0;
         }
 
         .sidebar-nav a {
@@ -273,8 +207,11 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            padding: 10px 20px;
+            transition: all 0.3s ease;
         }
         .sidebar-nav a:hover {
+            background-color: rgba(255, 255, 255, 0.2);
             color: var(--primary-color);
         }
         /* Main Content Area */
@@ -284,7 +221,7 @@
             margin-top: var(--header-height);
         }
         .dashboard-card {
-            background: rgba(246, 236, 236, 0.46);
+            background: rgba(246, 236, 236, 0.69);
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 20px;
@@ -344,20 +281,36 @@
     border-radius: 4px;
     font-weight: bold;
 }
+
+.user-profile-link {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 10px;
+}
+
+.user-profile-link i {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.user-profile-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
     </style>
 </head>
 <body>
- <?php include 'header.php'; ?>
+    <?php include 'header.php'; ?>
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <ul class="sidebar-nav">
-            <li>
-            <a href="driver.php">
-                <!-- <i class="bi bi-grid"></i> -->
-                <span><i class="bi bi-person-circle"></i> <!-- User icon -->
-                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span></span>
-            </a>
-            </li>
+            <!-- <li>
+                <a href="driver.php" class="user-profile-link">
+                    <i class="fas fa-user-circle"></i>
+                    <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                </a>
+            </li> -->
             <li>
                 <a href="driver_profile.php">
                     <i class="bi bi-person"></i>
@@ -368,26 +321,44 @@
                 <a href="driverPreviousJob.php">
                     <i class="bi bi-clock-history"></i>
                     <span>Previous Jobs</span>
-                </a>
+                </a> 
             </li> 
             <li>
+                <a href="driver_notes.php">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Assigned Services</span>
+                </a>
+            </li>
+            <li>
             <a href="driver_schedule.php">
-            <i class="bi bi-clock-history"></i><span> Emergency Schedule</span>
+            <i class="fas fa-list"></i><span> Emergency Schedule</span>
             </a>
             </li>
             <li>
                 <a href="driver_review.php">
-                    <i class="bi bi-clock-history"></i>
+                    <i class="fas fa-th-list"></i>
                     <span>feedback</span>
                 </a>
             </li>
+            <li>
+                <a href="security.php">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Security</span>
+                </a>
+            </li> 
+            
+            <li>
+                <a href="driver_leave.php">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Leave</span>
+                </a>
+            </li> 
             <li>
                 <a href="logout.php">
                     <i class="bi bi-box-arrow-right"></i>
                     <span>Logout</span>
                 </a>
             </li>
-
         </ul>
     </aside>
 
@@ -413,6 +384,7 @@
                     <form action="handle_request.php" method="POST" class="accept-form">
                         <input type="hidden" name="request_type" value="emergency">
                         <input type="hidden" name="request_id" value="<?php echo $request['request_id']; ?>">
+                        <input type="hidden" name="user_email" value="<?php echo htmlspecialchars($request['email'] ?? ''); ?>">
                         <input type="hidden" name="user_phone" value="<?php echo htmlspecialchars($request['contact_phone']); ?>">
                         <input type="hidden" name="user_name" value="<?php echo htmlspecialchars($request['patient_name']); ?>">
                         <button type="submit" class="design">Accept Request</button>
@@ -436,7 +408,10 @@
                             <p><strong>User:</strong> <?php echo htmlspecialchars($request['user_name'] ?? 'Unknown User'); ?></p>
                             <p><strong>From:</strong> <?php echo htmlspecialchars($request['pickup_location']); ?></p>
                             <p><strong>To:</strong> <?php echo htmlspecialchars($request['destination']); ?></p>
-                            <p><strong>Service Time:</strong> <?php echo htmlspecialchars($request['service_time']); ?></p>
+                            <p><strong>Service Time:</strong> <?php 
+                                // Format service_time to show date and time nicely
+                                echo date('d M Y, h:i A', strtotime($request['service_time'])); 
+                            ?></p>
                             <p><strong>Type:</strong> <?php echo htmlspecialchars($request['ambulance_type']); ?></p>
                             <p><strong>Additional:</strong> <?php echo htmlspecialchars($request['additional_requirements']); ?></p>
                             <p><strong>Phone No:</strong> <?php echo htmlspecialchars($request['phoneno']); ?></p>
@@ -474,6 +449,7 @@
                             <form action="handle_palliative.php" method="POST" class="accept-form">
                                 <input type="hidden" name="request_type" value="palliative">
                                 <input type="hidden" name="request_id" value="<?php echo $request['palliativeid']; ?>">
+                                <input type="hidden" name="user_email" value="<?php echo htmlspecialchars($request['email'] ?? ''); ?>">
                                 <input type="hidden" name="user_phone" value="<?php echo htmlspecialchars($request['phoneno']); ?>">
                                 <input type="hidden" name="user_name" value="<?php echo htmlspecialchars($request['user_name']); ?>">
                                 <button type="submit" class="design">Accept Request</button>

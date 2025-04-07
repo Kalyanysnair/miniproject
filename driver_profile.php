@@ -465,62 +465,37 @@ if (!$driver) {
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        .back-button {
+    background-color: white;
+    color: black;
+    border: none; /* Removed the black border */
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .back-button:hover {
+    background-color:rgb(216, 214, 214); /* Subtle gray on hover */
+  }
     </style>
 </head>
 <body>
     <!-- Header -->
     <?php include 'header.php'; ?>
 
-    <!-- Sidebar Navigation -->
-    <!-- <aside class="sidebar"> -->
-   
-
-    <!-- Sidebar Navigation -->
-    <!-- <ul class="sidebar-nav">
-        <li>
-            <a href="driver.php">
-                <i class="bi bi-grid"></i
-                <span><i class="bi bi-person-circle"></i> 
-                <span><?php echo htmlspecialchars($_SESSION['username']); ?></span></span>
-            </a>
-        </li>
-        <li>
-            <a href="driver_profile.php">
-                <i class="bi bi-person"></i>
-                <span>My Profile</span>
-            </a>
-        </li>
-        <li>
-            <a href="driverPreviousJob.php">
-                <i class="bi bi-clock-history"></i>
-                <span>Previous Jobs</span>
-            </a>
-        </li>
-        <li>
-            <a href="admin_review.php">
-                <i class="bi bi-star"></i>
-                <span>Feedback</span>
-            </a>
-        </li>
-        <li>
-            <a href="logout.php">
-                <i class="bi bi-box-arrow-right"></i>
-                <span>Logout</span>
-            </a>
-        </li>
-    </ul>
-</aside> -->
-
     <!-- Main Content -->
     <main class="main">
-        <div class="profile-container">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <a href="driver.php" class="btn" style="background-color: #6c757d; color: white;">
-                    <i class="bi bi-arrow-left"></i> Back
-                </a>
-                <div></div> <!-- Empty div to maintain spacing -->
-            </div>
-            
+    <div class="profile-container">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <button onclick="window.location.href='driver.php'" class="back-button">
+      &#8592; Back
+    </button>
+   
+</div>
             <div class="profile-header">
                 <h2>Driver Profile</h2>
                 <p>View and manage your driver profile information</p>

@@ -16,8 +16,6 @@ $error_message = "";
 if (isset($_SESSION['payment_success']) && $_SESSION['payment_success'] === true) {
     $payment_success = true;
     $payment_amount = isset($_SESSION['payment_amount']) ? $_SESSION['payment_amount'] : 0;
-    unset($_SESSION['payment_success']);
-    unset($_SESSION['payment_amount']);
 }
 
 if (isset($_SESSION['payment_failed']) && $_SESSION['payment_failed'] === true) {
@@ -26,8 +24,8 @@ if (isset($_SESSION['payment_failed']) && $_SESSION['payment_failed'] === true) 
 }
 
 try {
-    // Get all paid bookings
-    $paid_bookings_query = "SELECT request_id, request_type, amount FROM tbl_payments 
+    // Get all paid bookings with their amounts and payment IDs
+    $paid_bookings_query = "SELECT request_id, request_type, amount, razorpay_payment_id FROM tbl_payments 
                            WHERE userid = ? AND payment_status = 'completed'";
     $stmt = $conn->prepare($paid_bookings_query);
     $stmt->bind_param("i", $userid);
@@ -39,10 +37,13 @@ try {
     $paid_amounts = [];
     while($row = $paid_result->fetch_assoc()) {
         $paid_bookings[$row['request_type'] . '_' . $row['request_id']] = true;
-        $paid_amounts[$row['request_type'] . '_' . $row['request_id']] = $row['amount'];
+        $paid_amounts[$row['request_type'] . '_' . $row['request_id']] = [
+            'amount' => $row['amount'],
+            'razorpay_payment_id' => $row['razorpay_payment_id']
+        ];
     }
 
-    // Step 1: Fetch the user's name and phone number from the user table
+    // Fetch user details
     $user_query = "SELECT username, phoneno FROM tbl_user WHERE userid = ?";
     $stmt = $conn->prepare($user_query);
     if (!$stmt) {
@@ -57,13 +58,10 @@ try {
         throw new Exception("User not found.");
     }
 
-    //Debug: Check the fetched name and phone number
-    $patient_name = $user['username']; // Assuming 'username' is the user's name
+    $patient_name = $user['username']; 
     $contact_phone = $user['phoneno'];
-    // echo "Debug: Fetched name: " . $patient_name . "<br>"; // Debug: Print the fetched name
-    // echo "Debug: Fetched phone number: " . $contact_phone . "<br>"; // Debug: Print the fetched phone number
 
-    // Step 2: Fetch emergency bookings using the name and phone number
+    // Fetch emergency bookings
     $emergency_query = "
         SELECT 
             request_id,
@@ -86,24 +84,6 @@ try {
     $stmt->bind_param("i", $userid);
     $stmt->execute();
     $emergency_bookings = $stmt->get_result();
-
-    // Debug: Check if data is fetched
-    if ($emergency_bookings->num_rows === 0) {
-        // $error_message = "No emergency bookings found for the user.";
-        // echo "Debug: No rows found for name: " . $patient_name . " and phone: " . $contact_phone . "<br>"; // Debug: Print if no rows are found
-    } else {
-        // echo "Debug: Rows found: " . $emergency_bookings->num_rows . "<br>"; // Debug: Print the number of rows found
-    }
-
-    // Add this before the emergency table HTML
-    error_log("Debug Emergency Bookings: User ID = " . $userid);
-    while ($debug_booking = $emergency_bookings->fetch_assoc()) {
-        error_log("Booking ID: " . $debug_booking['request_id'] . 
-                  ", Status: " . $debug_booking['status'] . 
-                  ", UserID: " . $debug_booking['userid']);
-    }
-    // Reset the result pointer
-    mysqli_data_seek($emergency_bookings, 0);
 
     // Fetch prebookings
     $prebookings_query = "
@@ -155,6 +135,11 @@ try {
     error_log("Database error: " . $e->getMessage());
 }
 
+// Clear session variables after displaying success message
+if ($payment_success) {
+    unset($_SESSION['payment_success']);
+    unset($_SESSION['payment_amount']);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -164,6 +149,7 @@ try {
     <title>Booking Status</title>
     <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link href="assets/css/main.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -173,48 +159,11 @@ try {
             background-attachment: fixed;
             margin-top: 80px;
             padding: 0px;
-            display: flex;
         }
-
-        /* .sidebar {
-            width: 250px;
-            background: rgba(206, 205, 205, 0.8);
-            color: white;
-            padding: 20px;
-            height: 100vh;
-            position: fixed;
-            margin-top: 80;
-            left: 0;
-        }
-
-        .sidebar h2 {
-            color: #2E8B57;
-            margin-bottom: 20px;
-        }
-
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .sidebar ul li {
-            margin: 15px 0;
-        }
-
-        .sidebar ul li a {
-            color: white;
-            text-decoration: none;
-            font-size: 16px;
-        }
-
-        .sidebar ul li a:hover {
-            color: #2E8B57;
-        } */
 
         .container {
-            /* margin-left: 250px; */
             padding: 20px;
-            flex: 1;
+            margin-top: 50px;
         }
 
         .card {
@@ -311,6 +260,11 @@ try {
         .status-paid {
             background-color: #28a745;
             color: white;
+            cursor: pointer;
+        }
+
+        .status-paid:hover {
+            background-color: #218838;
         }
 
         .error-message {
@@ -319,32 +273,6 @@ try {
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 15px;
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                height: auto;
-                position: relative;
-            }
-
-            .container {
-                margin-left: 0;
-            }
-
-            .booking-details {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .btn-success.disabled {
-            background-color: #28a745;
-            cursor: default;
-            opacity: 0.65;
-        }
-
-        .btn-success.disabled:hover {
-            background-color: #28a745;
         }
 
         .alert {
@@ -365,38 +293,51 @@ try {
             background-color: #f8d7da;
             border-color: #f5c6cb;
         }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin-left: 0;
+            }
+
+            .booking-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        main {
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    
-    <!-- <div class="sidebar">
-<div class="user-info"><a href="user1.php">
-    <i class="fas fa-user-circle"></i>
-    <?php echo $_SESSION['username']; ?></a>
-</div>
-
-    <ul class="sidebar-nav">
-        
-        <li><a href="user_profile.php"><i class="fas fa-user"></i>  Profile</a></li>
-        <li><a href="feedback.php"><i class="fas fa-comment"></i> Give Feedback</a></li>
-        <li><a href="logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-    </ul>
-</div> -->
-
-    <!-- Main Content -->
     <div class="container">
         <?php include 'header.php'; ?>
-
+        
+        <!-- Rest of your existing content goes here -->
         <?php if ($payment_success): ?>
             <div class="alert alert-success" role="alert">
                 Payment of ₹<?php echo number_format($payment_amount, 2); ?> was successful! Your booking status has been updated.
             </div>
         <?php endif; ?>
 
-        <?php if ($payment_failed): ?>
+        <?php if ($payment_failed || isset($_GET['error'])): ?>
             <div class="alert alert-danger" role="alert">
-                Payment failed. Please try again or contact support.
+                <?php
+                if (isset($_GET['message'])) {
+                    echo htmlspecialchars($_GET['message']);
+                } else {
+                    echo "Payment failed. Please try again or contact support.";
+                }
+                ?>
             </div>
         <?php endif; ?>
 
@@ -409,16 +350,13 @@ try {
         <!-- Emergency Requests -->
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Emergency Requests</h2>
-                <a href="user1.php" class="btn" style="margin-right: 10px;">Back</a>
+                <a href="user1.php" class="btn" style="margin-left: 10px; background-color: #2E8B57;">Back</a>
+                <h2 style="margin: 0; flex-grow: 1; text-align: center;">Emergency Requests</h2>
             </div>
             <?php if ($emergency_bookings && $emergency_bookings->num_rows > 0): ?>
                 <table>
                     <thead>
                         <tr>
-                            
-                            <!-- <th>Patient Name</th>
-                            <th>Contact</th> -->
                             <th>Location</th>
                             <th>Ambulance Type</th>
                             <th>Status</th>
@@ -429,9 +367,6 @@ try {
                     <tbody>
                         <?php while ($booking = $emergency_bookings->fetch_assoc()): ?>
                             <tr>
-                                
-                                <!-- <td><?php echo htmlspecialchars($booking['patient_name']); ?></td>
-                                <td><?php echo htmlspecialchars($booking['contact_phone']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['ambulance_type']); ?></td>
                                 <td>
@@ -441,18 +376,25 @@ try {
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                    <?php if ($booking['status'] == 'Accepted' || $booking['status'] == 'Approved'): ?>
+                                        <a href="user_view.php?request_id=<?php echo $booking['request_id']; ?>&type=emergency" class="btn btn-success btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    <?php elseif ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['emergency_' . $booking['request_id']])): ?>
-                                            <span class="status-badge status-paid">
-                                                Paid (₹<?php echo number_format($paid_amounts['emergency_' . $booking['request_id']], 2); ?>)
+                                            <span class="status-badge status-paid" 
+                                                  onclick="showReceipt('<?php echo $paid_amounts['emergency_' . $booking['request_id']]['razorpay_payment_id']; ?>')">
+                                                Paid (₹<?php echo number_format($paid_amounts['emergency_' . $booking['request_id']]['amount'], 2); ?>)
                                             </span>
                                         <?php else: ?>
-                                            <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>, 'emergency')" 
-                                                    data-booking-id="<?php echo (int)$booking['request_id']; ?>" 
-                                                    data-booking-type="emergency">
+                                            <button class="btn btn-success" onclick="proceedToPayment(<?php echo (int)$booking['request_id']; ?>, 'emergency')">
                                                 Pay Now
                                             </button>
                                         <?php endif; ?>
+                                    <?php elseif ($booking['status'] == 'Pending'): ?>
+                                        <button class="btn btn-danger" onclick="cancelBooking(<?php echo (int)$booking['request_id']; ?>, 'emergency')">
+                                            Cancel
+                                        </button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -471,7 +413,6 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <!-- <th>Booking ID</th> -->
                             <th>Pickup Location</th>
                             <th>Destination</th>
                             <th>Service Type</th>
@@ -485,7 +426,6 @@ try {
                     <tbody>
                         <?php while ($booking = $prebookings->fetch_assoc()): ?>
                             <tr>
-                                <!-- <td>#<?php echo htmlspecialchars($booking['prebookingid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['pickup_location']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['destination']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['service_type']); ?></td>
@@ -498,16 +438,25 @@ try {
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                    <?php if ($booking['status'] == 'Accepted' || $booking['status'] == 'Approved'): ?>
+                                        <a href="user_view.php?request_id=<?php echo $booking['prebookingid']; ?>&type=prebooking" class="btn btn-success btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    <?php elseif ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['prebooking_' . $booking['prebookingid']])): ?>
-                                            <span class="status-badge status-paid">
-                                                Paid (₹<?php echo number_format($paid_amounts['prebooking_' . $booking['prebookingid']], 2); ?>)
+                                            <span class="status-badge status-paid" 
+                                                  onclick="showReceipt('<?php echo $paid_amounts['prebooking_' . $booking['prebookingid']]['razorpay_payment_id']; ?>')">
+                                                Paid (₹<?php echo number_format($paid_amounts['prebooking_' . $booking['prebookingid']]['amount'], 2); ?>)
                                             </span>
                                         <?php else: ?>
-                                            <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>, 'prebooking')">
+                                            <button class="btn btn-success" onclick="proceedToPayment(<?php echo (int)$booking['prebookingid']; ?>, 'prebooking')">
                                                 Pay Now
                                             </button>
                                         <?php endif; ?>
+                                    <?php elseif ($booking['status'] == 'Pending'): ?>
+                                        <button class="btn btn-danger" onclick="cancelBooking(<?php echo (int)$booking['prebookingid']; ?>, 'prebooking')">
+                                            Cancel
+                                        </button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -526,7 +475,6 @@ try {
                 <table>
                     <thead>
                         <tr>
-                            <!-- <th>Booking ID</th> -->
                             <th>Address</th>
                             <th>Medical Condition</th>
                             <th>Status</th>
@@ -537,27 +485,34 @@ try {
                     <tbody>
                         <?php while ($booking = $palliative->fetch_assoc()): ?>
                             <tr>
-                                <!-- <td>#<?php echo htmlspecialchars($booking['palliativeid']); ?></td> -->
                                 <td><?php echo htmlspecialchars($booking['address']); ?></td>
                                 <td><?php echo htmlspecialchars($booking['medical_condition']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo strtolower(htmlspecialchars($booking['status'])); ?>">
                                         <?php echo htmlspecialchars($booking['status']); ?>
                                     </span>
-                                    
                                 </td>
                                 <td><?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?></td>
                                 <td>
-                                    <?php if ($booking['status'] == 'Completed'): ?>
+                                    <?php if ($booking['status'] == 'Accepted' || $booking['status'] == 'Approved'): ?>
+                                        <a href="user_view.php?request_id=<?php echo $booking['palliativeid']; ?>&type=palliative" class="btn btn-success btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    <?php elseif ($booking['status'] == 'Completed'): ?>
                                         <?php if (isset($paid_bookings['palliative_' . $booking['palliativeid']])): ?>
-                                            <span class="status-badge status-paid">
-                                                Paid (₹<?php echo number_format($paid_amounts['palliative_' . $booking['palliativeid']], 2); ?>)
+                                            <span class="status-badge status-paid" 
+                                                  onclick="showReceipt('<?php echo $paid_amounts['palliative_' . $booking['palliativeid']]['razorpay_payment_id']; ?>')">
+                                                Paid (₹<?php echo number_format($paid_amounts['palliative_' . $booking['palliativeid']]['amount'], 2); ?>)
                                             </span>
                                         <?php else: ?>
-                                            <button class="btn" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>, 'palliative')">
+                                            <button class="btn btn-success" onclick="proceedToPayment(<?php echo (int)$booking['palliativeid']; ?>, 'palliative')">
                                                 Pay Now
                                             </button>
                                         <?php endif; ?>
+                                    <?php elseif ($booking['status'] == 'Pending'): ?>
+                                        <button class="btn btn-danger" onclick="cancelBooking(<?php echo (int)$booking['palliativeid']; ?>, 'palliative')">
+                                            Cancel
+                                        </button>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -571,12 +526,39 @@ try {
     </div>
 
     <script>
+        function showReceipt(paymentId) {
+            window.open('payment_receipt.php?payment_id=' + paymentId, '_blank');
+        }
+
         function proceedToPayment(requestId, bookingType) {
-            console.log('Request ID:', requestId, 'Booking Type:', bookingType); // Add debug logging
             if (confirm('Do you want to proceed to payment for this completed service?')) {
-                let url = 'payment.php?request_id=' + requestId + '&booking_type=' + bookingType;
-                console.log('Redirecting to:', url); // Add debug logging
-                window.location.href = url;
+                window.location.href = 'payment.php?request_id=' + requestId + '&booking_type=' + bookingType;
+            }
+        }
+
+        function cancelBooking(requestId, bookingType) {
+            if (confirm('Are you sure you want to cancel this booking?')) {
+                const formData = new FormData();
+                formData.append('request_id', requestId);
+                formData.append('booking_type', bookingType);
+                
+                fetch('cancel_booking.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Booking cancelled successfully');
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Failed to cancel booking');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while cancelling the booking: ' + error.message);
+                });
             }
         }
 

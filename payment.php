@@ -260,15 +260,15 @@ function checkExpiryDate($month, $year) {
                 "name": "Ambulance Service",
                 "description": "Payment for <?php echo htmlspecialchars($booking['ambulance_type']); ?> Service",
                 "handler": function (response) {
+                    console.log('Payment response:', response); // Debug log
                     if (response.razorpay_payment_id) {
-                        // Handle successful payment
+                        console.log('Payment successful, redirecting to payment_success.php'); // Debug log
                         window.location.href = "payment_success.php?payment_id=" + response.razorpay_payment_id 
                             + "&booking_id=<?php echo $booking['request_id']; ?>"
                             + "&booking_type=<?php echo $booking_type; ?>";
                     } else {
-                        // Set payment failed in session and redirect
-                        <?php $_SESSION['payment_failed'] = true; ?>
-                        window.location.href = "status.php";
+                        console.log('Payment failed, redirecting to status page'); // Debug log
+                        window.location.href = "status.php?error=payment_failed&message=Payment failed";
                     }
                 },
                 "prefill": {
@@ -279,8 +279,7 @@ function checkExpiryDate($month, $year) {
                 },
                 "modal": {
                     "ondismiss": function() {
-                        <?php $_SESSION['payment_failed'] = true; ?>
-                        window.location.href = "status.php";
+                        window.location.href = "status.php?error=payment_cancelled&message=Payment cancelled";
                     }
                 }
             };

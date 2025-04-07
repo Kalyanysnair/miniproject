@@ -19,93 +19,133 @@ $receipt_number = '';
 if (!isset($_SESSION['user_id']) || !isset($_GET['payment_id'])) {
     error_log("Payment Receipt: Missing required parameters");
     $_SESSION['error_message'] = "Invalid request - Missing parameters";
-    // Instead of die(), store error and continue to display a friendly message
+    // Instead of die(), store error and redirect to a friendly error page
+    header("Location: status.php?error=missing_parameters");
+    exit();
 } else {
     $razorpay_payment_id = $_GET['payment_id'];
     $userid = $_SESSION['user_id'];
 
     try {
-        // Get payment details
-        $query = "SELECT p.*, u.username, u.email, u.phoneno 
-                  FROM tbl_payments p
-                  JOIN tbl_user u ON p.userid = u.userid
-                  WHERE p.razorpay_payment_id = ? AND p.userid = ?";
+        // Get payment details with user information
+        $payment_query = "SELECT p.*, 
+                                 u.username, u.email, u.phoneno,
+                                 CASE 
+                                    WHEN p.request_type = 'emergency' THEN e.pickup_location
+                                    WHEN p.request_type = 'prebooking' THEN pr.pickup_location
+                                    WHEN p.request_type = 'palliative' THEN pa.address
+                                 END as location,
+                                 CASE 
+                                    WHEN p.request_type = 'emergency' THEN e.ambulance_type
+                                    WHEN p.request_type = 'prebooking' THEN pr.ambulance_type
+                                    WHEN p.request_type = 'palliative' THEN 'Palliative Care'
+                                 END as ambulance_type,
+                                 CASE 
+                                    WHEN p.request_type = 'emergency' THEN e.created_at
+                                    WHEN p.request_type = 'prebooking' THEN pr.created_at
+                                    WHEN p.request_type = 'palliative' THEN pa.created_at
+                                 END as booking_date,
+                                 CASE 
+                                    WHEN p.request_type = 'emergency' THEN d1.username
+                                    WHEN p.request_type = 'prebooking' THEN d2.username
+                                    WHEN p.request_type = 'palliative' THEN d3.username
+                                 END as driver_name
+                          FROM tbl_payments p
+                          JOIN tbl_user u ON p.userid = u.userid
+                          LEFT JOIN tbl_emergency e ON p.request_type = 'emergency' AND p.request_id = e.request_id
+                          LEFT JOIN tbl_prebooking pr ON p.request_type = 'prebooking' AND p.request_id = pr.prebookingid
+                          LEFT JOIN tbl_palliative pa ON p.request_type = 'palliative' AND p.request_id = pa.palliativeid
+                          LEFT JOIN tbl_user d1 ON e.driver_id = d1.userid
+                          LEFT JOIN tbl_user d2 ON pr.driver_id = d2.userid
+                          LEFT JOIN tbl_user d3 ON pa.driver_id = d3.userid
+                          WHERE p.razorpay_payment_id = ? AND p.userid = ?";
         
-        $stmt = $conn->prepare($query);
+        error_log("Payment Receipt: Query: " . $payment_query);
+        error_log("Payment Receipt: Parameters - payment_id: $razorpay_payment_id, userid: $userid");
+        
+        $stmt = $conn->prepare($payment_query);
         if (!$stmt) {
             throw new Exception("Database error: " . $conn->error);
         }
+        
         $stmt->bind_param("si", $razorpay_payment_id, $userid);
         $stmt->execute();
         $result = $stmt->get_result();
-        
-        if ($result->num_rows === 0) {
-            throw new Exception("Payment not found");
-        }
-        
         $payment = $result->fetch_assoc();
         
-        // Get booking details based on request type
-        if (isset($payment['request_type']) && isset($payment['request_id'])) {
-            switch ($payment['request_type']) {
-                case 'emergency':
-                    $booking_query = "SELECT request_id, pickup_location, patient_name, ambulance_type, created_at 
-                                    FROM tbl_emergency 
-                                    WHERE request_id = ? AND (userid = ? OR userid IS NULL)";
-                    $booking_id_field = 'request_id';
-                    break;
-                case 'prebooking':
-                    $booking_query = "SELECT prebookingid, pickup_location, destination, service_time, ambulance_type, created_at
-                                    FROM tbl_prebooking 
-                                    WHERE prebookingid = ? AND userid = ?";
-                    $booking_id_field = 'prebookingid';
-                    break;
-                case 'palliative':
-                    $booking_query = "SELECT palliativeid, address, medical_condition, created_at 
-                                    FROM tbl_palliative 
-                                    WHERE palliativeid = ? AND userid = ?";
-                    $booking_id_field = 'palliativeid';
-                    break;
-                default:
-                    throw new Exception("Invalid booking type");
-            }
+        if (!$payment) {
+            // Try without userid constraint in case there's a session mismatch
+            $fallback_query = "SELECT p.*, 
+                                u.username, u.email, u.phoneno,
+                                CASE 
+                                   WHEN p.request_type = 'emergency' THEN e.pickup_location
+                                   WHEN p.request_type = 'prebooking' THEN pr.pickup_location
+                                   WHEN p.request_type = 'palliative' THEN pa.address
+                                END as location,
+                                CASE 
+                                   WHEN p.request_type = 'emergency' THEN e.ambulance_type
+                                   WHEN p.request_type = 'prebooking' THEN pr.ambulance_type
+                                   WHEN p.request_type = 'palliative' THEN 'Palliative Care'
+                                END as ambulance_type,
+                                CASE 
+                                   WHEN p.request_type = 'emergency' THEN e.created_at
+                                   WHEN p.request_type = 'prebooking' THEN pr.created_at
+                                   WHEN p.request_type = 'palliative' THEN pa.created_at
+                                END as booking_date,
+                                CASE 
+                                   WHEN p.request_type = 'emergency' THEN d1.username
+                                   WHEN p.request_type = 'prebooking' THEN d2.username
+                                   WHEN p.request_type = 'palliative' THEN d3.username
+                                END as driver_name
+                         FROM tbl_payments p
+                         JOIN tbl_user u ON p.userid = u.userid
+                         LEFT JOIN tbl_emergency e ON p.request_type = 'emergency' AND p.request_id = e.request_id
+                         LEFT JOIN tbl_prebooking pr ON p.request_type = 'prebooking' AND p.request_id = pr.prebookingid
+                         LEFT JOIN tbl_palliative pa ON p.request_type = 'palliative' AND p.request_id = pa.palliativeid
+                         LEFT JOIN tbl_user d1 ON e.driver_id = d1.userid
+                         LEFT JOIN tbl_user d2 ON pr.driver_id = d2.userid
+                         LEFT JOIN tbl_user d3 ON pa.driver_id = d3.userid
+                         WHERE p.razorpay_payment_id = ?";
             
-            $stmt = $conn->prepare($booking_query);
-            if (!$stmt) {
+            $fallback_stmt = $conn->prepare($fallback_query);
+            if (!$fallback_stmt) {
                 throw new Exception("Database error: " . $conn->error);
             }
-            $stmt->bind_param("ii", $payment['request_id'], $userid);
-            $stmt->execute();
-            $booking_result = $stmt->get_result();
             
-            if ($booking_result->num_rows === 0) {
-                throw new Exception("Booking details not found");
-            }
+            $fallback_stmt->bind_param("s", $razorpay_payment_id);
+            $fallback_stmt->execute();
+            $fallback_result = $fallback_stmt->get_result();
+            $payment = $fallback_result->fetch_assoc();
             
-            $booking = $booking_result->fetch_assoc();
-            
-            // Format dates
-            if (isset($payment['payment_date'])) {
-                $payment_date = new DateTime($payment['payment_date']);
-                $formatted_date = $payment_date->format('d M Y, h:i A');
-            }
-            
-            if (isset($booking['created_at'])) {
-                $booking_date = new DateTime($booking['created_at']);
-                $formatted_booking_date = $booking_date->format('d M Y, h:i A');
-            }
-            
-            // Generate receipt number
-            if (isset($payment['payment_id']) && isset($payment['request_type'])) {
-                $receipt_number = 'SWIFTAID-' . strtoupper(substr($payment['request_type'], 0, 3)) . '-' . 
-                                str_pad($payment['payment_id'], 6, '0', STR_PAD_LEFT);
+            if (!$payment) {
+                error_log("Payment Receipt: No payment found for payment_id: $razorpay_payment_id");
+                throw new Exception("Could not retrieve payment details: Payment not found");
             }
         }
         
+        error_log("Payment Receipt: Payment details retrieved: " . print_r($payment, true));
+        
+        // Format dates
+        if (isset($payment['payment_date'])) {
+            $payment_date = new DateTime($payment['payment_date']);
+            $formatted_date = $payment_date->format('d M Y, h:i A');
+        }
+        
+        if (isset($payment['booking_date'])) {
+            $booking_date = new DateTime($payment['booking_date']);
+            $formatted_booking_date = $booking_date->format('d M Y, h:i A');
+        }
+        
+        // Generate receipt number
+        if (isset($payment['payment_id']) && isset($payment['request_type'])) {
+            $receipt_number = 'SWIFTAID-' . strtoupper(substr($payment['request_type'], 0, 3)) . '-' . 
+                            str_pad($payment['payment_id'], 6, '0', STR_PAD_LEFT);
+        }
     } catch (Exception $e) {
         error_log("Payment Receipt Error: " . $e->getMessage());
-        $_SESSION['error_message'] = "Could not retrieve payment details: " . $e->getMessage();
-        // Store error message but continue to display the page with error handling
+        $_SESSION['error_message'] = $e->getMessage();
+        header("Location: status.php?error=payment_failed&message=" . urlencode($e->getMessage()));
+        exit();
     }
 }
 
@@ -134,6 +174,8 @@ function getServiceTypeName($type) {
             return "Unknown Service";
     }
 }
+
+// Continue with the rest of your receipt display code here...
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -397,6 +439,13 @@ function getServiceTypeName($type) {
                     </div>
                     
                     <div class="receipt-row">
+                        <div class="receipt-label">Driver:</div>
+                        <div class="receipt-value"><?php echo htmlspecialchars(getValue($payment, 'driver_name') ?: 'N/A'); ?></div>
+                    </div>
+                    
+                 
+                    
+                    <div class="receipt-row">
                         <div class="receipt-label">Booking ID:</div>
                         <div class="receipt-value"><?php echo htmlspecialchars(getValue($payment, 'request_id') ?: 'N/A'); ?></div>
                     </div>
@@ -406,50 +455,50 @@ function getServiceTypeName($type) {
                         <div class="receipt-value"><?php echo htmlspecialchars($formatted_booking_date ?: 'N/A'); ?></div>
                     </div>
                     
-                    <?php if(isset($booking['ambulance_type']) && $booking['ambulance_type']): ?>
+                    <?php if(isset($payment['ambulance_type']) && $payment['ambulance_type']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Ambulance Type:</div>
-                        <div class="receipt-value"><?php echo htmlspecialchars($booking['ambulance_type']); ?></div>
+                        <div class="receipt-value"><?php echo htmlspecialchars($payment['ambulance_type']); ?></div>
                     </div>
                     <?php endif; ?>
                     
-                    <?php if(isset($booking['pickup_location']) && $booking['pickup_location']): ?>
+                    <?php if(isset($payment['location']) && $payment['location']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Pickup Location:</div>
-                        <div class="receipt-value"><?php echo htmlspecialchars($booking['pickup_location']); ?></div>
+                        <div class="receipt-value"><?php echo htmlspecialchars($payment['location']); ?></div>
                     </div>
-                    <?php elseif(isset($booking['address']) && $booking['address']): ?>
+                    <?php elseif(isset($payment['address']) && $payment['address']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Address:</div>
-                        <div class="receipt-value"><?php echo htmlspecialchars($booking['address']); ?></div>
+                        <div class="receipt-value"><?php echo htmlspecialchars($payment['address']); ?></div>
                     </div>
                     <?php endif; ?>
                     
-                    <?php if(isset($booking['destination']) && $booking['destination']): ?>
+                    <?php if(isset($payment['destination']) && $payment['destination']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Destination:</div>
-                        <div class="receipt-value"><?php echo htmlspecialchars($booking['destination']); ?></div>
+                        <div class="receipt-value"><?php echo htmlspecialchars($payment['destination']); ?></div>
                     </div>
                     <?php endif; ?>
                     
-                    <?php if(isset($booking['service_time']) && $booking['service_time']): ?>
+                    <?php if(isset($payment['service_time']) && $payment['service_time']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Service Time:</div>
-                        <div class="receipt-value"><?php echo date('d M Y, h:i A', strtotime($booking['service_time'])); ?></div>
+                        <div class="receipt-value"><?php echo date('d M Y, h:i A', strtotime($payment['service_time'])); ?></div>
                     </div>
                     <?php endif; ?>
                     
-                    <?php if(isset($booking['patient_name']) && $booking['patient_name']): ?>
+                    <?php if(isset($payment['patient_name']) && $payment['patient_name']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Patient Name:</div>
-                        <div class="receipt-value"><?php echo htmlspecialchars($booking['patient_name']); ?></div>
+                        <div class="receipt-value"><?php echo htmlspecialchars($payment['patient_name']); ?></div>
                     </div>
                     <?php endif; ?>
                     
-                    <?php if(isset($booking['medical_condition']) && $booking['medical_condition']): ?>
+                    <?php if(isset($payment['medical_condition']) && $payment['medical_condition']): ?>
                     <div class="receipt-row">
                         <div class="receipt-label">Medical Condition:</div>
-                        <div class="receipt-value"><?php echo htmlspecialchars($booking['medical_condition']); ?></div>
+                        <div class="receipt-value"><?php echo htmlspecialchars($payment['medical_condition']); ?></div>
                     </div>
                     <?php endif; ?>
                 </div>

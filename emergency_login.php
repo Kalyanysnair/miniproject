@@ -122,30 +122,114 @@ if (isset($_SESSION['success_message'])) {
     <link href="assets/css/main.css" rel="stylesheet">
 
     <style>
+        :root {
+            --header-height: 90px;
+            --sidebar-width: 250px;
+            --primary-color: rgb(5, 30, 16);
+            --secondary-color: rgb(40, 186, 18);
+        }
+
+        body {
+            margin: 0;
+            padding-top: var(--header-height); /* Space for fixed header */
+            min-height: 100vh;
+            background-image: url('assets/assets/img//template/Groovin/hero-carousel/ambulance2.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        /* Sidebar styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            top: var(--header-height); /* Align with header */
+            left: 0;
+            height: calc(100vh - var(--header-height));
+            background-color: rgba(218, 214, 214, 0.46);
+            padding-top: 20px;
+            z-index: 999;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-nav li a {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: #012970;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .sidebar-nav li a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-nav li a:hover {
+            background-color: rgba(8, 218, 43, 0.1);
+            color: rgb(8, 218, 43);
+            transform: translateX(5px);
+        }
+
+        /* Content area adjustments */
+        .content-area {
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        .form-container {
+            background-color: rgba(229, 229, 229, 0.72);
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            margin-top: 90px; /* Reduced from 90px */
+            margin-left: auto;
+            margin-right: auto;
+            max-width: 800px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .content-area {
+                margin-left: 0;
+                padding: 15px;
+            }
+
+            .form-container {
+                margin-top: 10px;
+                padding: 20px;
+            }
+        }
+
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
             overflow-y: auto;
-            background-image: url('assets/assets/img//template/Groovin/hero-carousel/ambulance2.jpg');
-            background-size: cover;
-            background-position: center;
         }
         #map {
             height: 300px;
             width: 100%;
             margin-bottom: 15px;
             display: none; /* Initially hidden */
-        }
-        .form-container {
-            background-color: rgba(229, 229, 229, 0.72);
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            padding: 40px;
-            margin-top: 90px; /* Add space at the top to push the container downwards */
-            margin-left: auto; /* Center horizontally */
-            margin-right: auto; /* Center horizontally */
-            max-width: 800px;
         }
         .validation-message {
             font-size: 0.85em;
@@ -178,20 +262,6 @@ if (isset($_SESSION['success_message'])) {
             font-weight: bold;
         }
 
-        /* Sidebar styles */
-        .sidebar {
-            width: 250px;
-            position: fixed;
-            top: 60px; /* Adjust based on your header height */
-            left: 0;
-            height: 100%;
-            background-color: rgba(194, 195, 194, 0.43);
-            padding-top: 20px;
-            z-index: 1000;
-            text-align: left;
-            
-        }
-        
         .user-info {
             color: white;
             text-align: center;
@@ -204,37 +274,32 @@ if (isset($_SESSION['success_message'])) {
             color: white;
             text-decoration: none;
         }
+
         
-        .sidebar-nav {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+    
+
+        .container-fluid {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        
-        .sidebar-nav li {
-            margin-bottom: 5px;
-        }
-        
-        .sidebar-nav li a {
-            display: block;
-            padding: 10px 15px;
-            color: #f8f9fa;
+
+        .logo {
+            display: flex;
+            align-items: center;
             text-decoration: none;
-            transition: background-color 0.3s;
         }
-        
-        .sidebar-nav li a:hover {
-            background-color: #495057;
+
+        .logo img {
+            height: 70px;
+            margin-right: 10px;
         }
-        
-        .logout-btn {
-            color: #ff6b6b !important;
-        }
-        
-        /* Adjust content area to make room for sidebar */
-        .content-area {
-            margin-left: 250px;
-            padding: 20px;
+
+        .sitename {
+            color: white;
+            font-size: 24px;
+            margin: 0;
         }
     </style>
 </head>

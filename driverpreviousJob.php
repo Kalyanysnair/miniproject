@@ -2,9 +2,9 @@
 session_start();
 require 'connect.php';
 
-// Check if driver is logged in
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'driver') {
-    header("Location: login.php");
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
     exit();
 }
 
@@ -17,29 +17,24 @@ if (!$conn) {
     die("Database connection failed: " . mysqli_connect_error());
 }
 
-// Fetch role from `tbl_user` instead of `tbl_driver`
-$is_palliative_driver = false;
-$check_driver_query = "SELECT role FROM tbl_user WHERE userid = ?";
-$stmt = $conn->prepare($check_driver_query);
+// Verify driver role
+$role_query = "SELECT role FROM tbl_user WHERE userid = ?";
+$role_stmt = $conn->prepare($role_query);
+$role_stmt->bind_param("i", $driver_id);
+$role_stmt->execute();
+$role_result = $role_stmt->get_result();
+$user_role = $role_result->fetch_assoc()['role'];
 
-if (!$stmt) {
-    die("Prepare failed: " . $conn->error);
+// Allow access for both 'driver' and 'palliative' roles
+if ($user_role !== 'driver' && $user_role !== 'palliative') {
+    header('Location: login.php');
+    exit();
 }
 
-$stmt->bind_param("i", $driver_id);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($row = $result->fetch_assoc()) {
-    $is_palliative_driver = ($row['role'] === 'palliative'); // Exact match check
-    error_log("Driver Role from DB: " . $row['role']);
-    error_log("Is Palliative Driver (exact match): " . ($is_palliative_driver ? "Yes" : "No"));
-}
-$stmt->close();
-
-// Add this after checking the driver role
-error_log("Driver Role Check: " . $row['role']);
-error_log("Is Palliative Driver: " . ($is_palliative_driver ? "Yes" : "No"));
+// Set is_palliative flag based on role
+$is_palliative = ($user_role === 'palliative');
+error_log("Driver Role from DB: " . $user_role);
+error_log("Is Palliative Driver: " . ($is_palliative ? "Yes" : "No"));
 
 // Handle request completion
 if (isset($_POST['complete_request'])) {
@@ -584,138 +579,193 @@ error_log("Is palliative driver: " . ($is_palliative ? "Yes" : "No"));
     font-weight: bold;
 }
 
+.receipt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.receipt-btn:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.receipt-btn:active {
+    transform: translateY(0);
+}
+
+.receipt-btn i {
+    font-size: 1rem;
+}
+
+.text-muted {
+    color: #6c757d;
+    font-style: italic;
+}
+
     </style>
 </head>
 <body>
     <?php include 'header.php'; ?>
     <div class="container">
-    <div class="glass-card position-relative">
-        <a href="driver.php" class="btn btn-success position-absolute" style="top: 30px; right: 30px;">Back</a>
-        <h2 class="mb-4">My Job History</h2>
+        <div class="glass-card position-relative">
+            <a href="driver.php" class="btn btn-success position-absolute" style="top: 30px; left: 30px;">Back</a>
+            <h2 class="mb-4"><center>My Job History</center></h2>
 
-        <?php if ($error_message): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
-        <?php endif; ?>
-
-        <?php if ($success_message): ?>
-            <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-        <?php endif; ?>
-
-            <?php if (!empty($jobs)): ?>
-                <?php foreach ($jobs as $job): ?>
-                    <div class="job-card">
-                        <div class="job-details">
-                            <div class="detail-item">
-                                <div class="detail-label">Request ID</div>
-                                <div class="detail-value"><?php echo htmlspecialchars($job['request_id']); ?></div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Request Type</div>
-                                <div class="detail-value">
-                                    <span class="request-type-badge type-<?php echo htmlspecialchars($job['request_type']); ?>">
-                                        <?php echo ucfirst(htmlspecialchars($job['request_type'])); ?>
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Patient/Requester Name</div>
-                                <div class="detail-value"><?php echo htmlspecialchars($job['patient_name'] ?? $job['requester_name'] ?? 'N/A'); ?></div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Pickup Location</div>
-                                <div class="detail-value"><?php echo htmlspecialchars($job['pickup_location'] ?? 'N/A'); ?></div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Status</div>
-                                <div class="detail-value">
-                                    <span class="status-badge status-<?php echo htmlspecialchars($job['status'] ?? 'Pending'); ?>">
-                                        <?php echo htmlspecialchars($job['status'] ?? 'Pending'); ?>
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Date</div>
-                                <div class="detail-value">
-                                    <?php echo date('d M Y, h:i A', strtotime($job['created_at'])); ?>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Contact</div>
-                                <div class="detail-value"><?php echo htmlspecialchars($job['contact_phone'] ?? 'N/A'); ?></div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Amount</div>
-                                <div class="detail-value">
-                                    <?php echo isset($job['amount']) && $job['amount'] > 0 ? '₹' . number_format($job['amount'], 2) : 'Not set'; ?>
-                                </div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">Payment Status</div>
-                                <div class="detail-value">
-                                    <?php if (isset($job['payment_status']) && $job['payment_status'] == 'Paid'): ?>
-                                        <span class="status-badge status-Paid">
-                                            Successful
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="status-badge status-Pending">
-                                            Pending
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-
-                        <?php if (($job['status'] == 'Accepted' || $job['status'] == 'Approved') && empty($job['amount'])): ?>
-                            <button type="button" 
-                                class="complete-btn open-modal" 
-                                data-requestid="<?php echo $job['request_id']; ?>" 
-                                data-requesttype="<?php echo $job['request_type']; ?>">
-                                Mark as Completed
-                            </button>
-                        <?php elseif (!empty($job['amount']) && $job['status'] == 'Completed' && (!isset($job['payment_status']) || $job['payment_status'] !== 'Paid')): ?>
-                            <form method="POST" style="display: inline;">
-                                <input type="hidden" name="request_id" value="<?php echo $job['request_id']; ?>">
-                                <input type="hidden" name="request_type" value="<?php echo $job['request_type']; ?>">
-                                <input type="hidden" name="amount" value="<?php echo $job['amount']; ?>">
-                                <!-- <button type="submit" name="submit_payment" class="payment-btn">
-                                    <span>Pay Now</span>
-                                    <span class="amount">₹<?php echo number_format($job['amount'], 2); ?></span>
-                                </button> -->
-                            </form>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <p>No job history found.</p>
+            <?php if ($error_message): ?>
+                <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
             <?php endif; ?>
+
+            <?php if ($success_message): ?>
+                <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
+            <?php endif; ?>
+
+            <div id="jobAnalysis">
+                <?php if (!empty($jobs)): ?>
+                    <?php foreach ($jobs as $job): ?>
+                        <div class="job-card">
+                            <div class="job-details">
+                                <div class="detail-item">
+                                    <div class="detail-label">Request ID</div>
+                                    <div class="detail-value"><?php echo htmlspecialchars($job['request_id']); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Request Type</div>
+                                    <div class="detail-value">
+                                        <span class="request-type-badge type-<?php echo htmlspecialchars($job['request_type']); ?>">
+                                            <?php echo ucfirst(htmlspecialchars($job['request_type'])); ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Patient/Requester Name</div>
+                                    <div class="detail-value"><?php echo htmlspecialchars($job['patient_name'] ?? $job['requester_name'] ?? 'N/A'); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Pickup Location</div>
+                                    <div class="detail-value"><?php echo htmlspecialchars($job['pickup_location'] ?? 'N/A'); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Status</div>
+                                    <div class="detail-value">
+                                        <span class="status-badge status-<?php echo htmlspecialchars($job['status'] ?? 'Pending'); ?>">
+                                            <?php echo htmlspecialchars($job['status'] ?? 'Pending'); ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Date</div>
+                                    <div class="detail-value">
+                                        <?php echo date('d M Y, h:i A', strtotime($job['created_at'])); ?>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Contact</div>
+                                    <div class="detail-value"><?php echo htmlspecialchars($job['contact_phone'] ?? 'N/A'); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Amount</div>
+                                    <div class="detail-value">
+                                        <?php echo isset($job['amount']) && $job['amount'] > 0 ? '₹' . number_format($job['amount'], 2) : 'Not set'; ?>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Payment Status</div>
+                                    <div class="detail-value">
+                                        <?php if (isset($job['payment_status']) && $job['payment_status'] == 'Paid'): ?>
+                                            <span class="status-badge status-Paid">
+                                                Successful
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="status-badge status-Pending">
+                                                Pending
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Receipt</div>
+                                    <div class="detail-value">
+                                        <?php 
+                                        if ($job['status'] == 'Completed' && 
+                                            !empty($job['amount']) && 
+                                            isset($job['payment_status']) && 
+                                            $job['payment_status'] == 'Paid'): 
+                                        ?>
+                                            <a href="generate_service_receipt.php?request_id=<?php echo urlencode($job['request_id']); ?>&request_type=<?php echo urlencode($job['request_type']); ?>&amount=<?php echo urlencode($job['amount']); ?>" 
+                                               class="receipt-btn" 
+                                               data-requestid="<?php echo htmlspecialchars($job['request_id']); ?>">
+                                                <i class="fas fa-file-invoice"></i> Download Receipt
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-muted">
+                                                <?php 
+                                                if ($job['status'] != 'Completed') {
+                                                    echo 'Service not completed';
+                                                } elseif (empty($job['amount'])) {
+                                                    echo 'Amount not set';
+                                                } elseif ($job['payment_status'] != 'Paid') {
+                                                    echo 'Payment pending';
+                                                } else {
+                                                    echo 'Not Available';
+                                                }
+                                                ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <?php if (($job['status'] == 'Accepted' || $job['status'] == 'Approved') && empty($job['amount'])): ?>
+                                <button type="button" 
+                                    class="complete-btn open-modal" 
+                                    data-requestid="<?php echo $job['request_id']; ?>" 
+                                    data-requesttype="<?php echo $job['request_type']; ?>">
+                                    Mark as Completed
+                                </button>
+                            <?php elseif (!empty($job['amount']) && $job['status'] == 'Completed' && (!isset($job['payment_status']) || $job['payment_status'] !== 'Paid')): ?>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="request_id" value="<?php echo $job['request_id']; ?>">
+                                    <input type="hidden" name="request_type" value="<?php echo $job['request_type']; ?>">
+                                    <input type="hidden" name="amount" value="<?php echo $job['amount']; ?>">
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p>No job history found.</p>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
-     
-    <div id="amountModal" class="modal">
-    <div class="modal-content">
-        <span class="close-modal">&times;</span>
-        <h3 class="modal-title">Enter Service Amount</h3>
-        <form method="POST" id="completeForm">
-            <input type="hidden" name="request_id" id="modal_request_id">
-            <input type="hidden" name="request_type" id="modal_request_type">
-            <div>
-                <input type="number" name="amount" id="service_amount" class="amount-field" placeholder="Enter amount (₹)" required min="1" step="0.01">
-            </div>
-            <button type="submit" name="complete_request" class="submit-amount">
-                Complete Service
-            </button>
-        </form>
-    </div>
-</div>
 
-    <script>
-        // Optional: Add confirmation before marking as complete
-        document.querySelectorAll('form').forEach(form => {
-            form.onsubmit = function(e) {
-                return confirm('Are you sure you want to mark this request as completed?');
-            };
-        });
-    </script>
+    <div id="amountModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3 class="modal-title">Enter Service Amount</h3>
+            <form method="POST" id="completeForm">
+                <input type="hidden" name="request_id" id="modal_request_id">
+                <input type="hidden" name="request_type" id="modal_request_type">
+                <div>
+                    <input type="number" name="amount" id="service_amount" class="amount-field" placeholder="Enter amount (₹)" required min="1" step="0.01">
+                </div>
+                <button type="submit" name="complete_request" class="submit-amount">
+                    Complete Service
+                </button>
+            </form>
+        </div>
+    </div>
+
     <script>
     // Get the modal
     var modal = document.getElementById("amountModal");
@@ -764,6 +814,42 @@ document.getElementById("completeForm").onsubmit = function(e) {
     console.log("Submitting form with amount: " + amount); // Debug
     return confirm('Are you sure you want to complete this service with an amount of ₹' + amount + '?');
 };
+
+// Remove the old event listeners and confirmDownload function
+document.addEventListener('DOMContentLoaded', function() {
+    const receiptButtons = document.querySelectorAll('.receipt-btn');
+    
+    receiptButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent default action
+            
+            const url = this.getAttribute('href');
+            const requestId = this.getAttribute('data-requestid');
+            
+            // Create a temporary form
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            form.target = '_blank';
+            
+            // Add request ID as hidden input
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'request_id';
+            input.value = requestId;
+            form.appendChild(input);
+            
+            // Add the form to the document and submit it
+            document.body.appendChild(form);
+            form.submit();
+            
+            // Remove the form from the document
+            document.body.removeChild(form);
+            
+            return false;
+        });
+    });
+});
 </script>
 </body>
 </html>
