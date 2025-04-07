@@ -2,20 +2,20 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Database configuration with correct variable names
-$host = "localhost";
-$username = "root";  // Your database username
-$password = "";      // Your database password
-$database = "groovin"; // Your database name
+// PostgreSQL database config
+$host = "dpg-cvq1o649c44c73e2t260-a";
+$port = "5432";
+$dbname = "groovin";
+$user = "groovin_user";
+$password = "J9HwvYnI9oktSort0UzBIW9PvAjCdWCV";
 
-// Create connection
-$conn = new mysqli($host, $username, $password, $database);
+// Build connection string
+$conn_string = "host=$host port=$port dbname=$dbname user=$user password=$password";
 
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+// Connect to PostgreSQL
+$conn = pg_connect($conn_string);
+
+if (!$conn) {
+    die("Connection failed: " . pg_last_error());
 }
-
-// Keep the connection object for use in other files
-$mysqli = $conn;
 ?>
