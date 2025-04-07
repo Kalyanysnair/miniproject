@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ambulance-booking
+    env: php
+    plan: free
+    buildCommand: "composer install"
+    startCommand: "php -S 0.0.0.0:10000 -t ."
+    branch: main
+    region: oregon
