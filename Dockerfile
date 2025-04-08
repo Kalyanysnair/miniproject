@@ -1,10 +1,12 @@
 FROM php:8.2-apache
 
-# Install mysqli extension
-RUN docker-php-ext-install mysqli
+# Install required packages for PostgreSQL and Apache rewrite
+RUN apt-get update && \
+    apt-get install -y libpq-dev && \
+    docker-php-ext-install pgsql pdo_pgsql mysqli
 
-# Enable Apache mod_rewrite (optional, for clean URLs)
+# Enable Apache mod_rewrite
 RUN a2enmod rewrite
 
-# Copy project files into the container
+# Copy project files
 COPY . /var/www/html/
